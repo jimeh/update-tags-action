@@ -1,0 +1,36 @@
+name: "Update Tags Action"
+description: "Create/update Git tags to point to a given sha or ref"
+author: "jimeh"
+inputs:
+  tags:
+    description: "List/CSV of tags to create/update."
+    required: true
+  ref:
+    description: "The SHA or ref to tag. Defaults to SHA of current commit."
+    required: false
+    default: "${{ github.sha }}"
+  when_exists:
+    description: >-
+      What to do if the tag already exists. Must be one of 'update', 'skip', or
+      'fail'.
+    required: false
+    default: "update"
+  github_token:
+    description: "The GitHub token to use for authentication."
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  tags:
+    description: "List of tags that were created/updated."
+  created:
+    description: "List of tags that were created."
+  updated:
+    description: "List of tags that were updated."
+
+runs:
+  using: "node16"
+  main: "dist/index.js"
+branding:
+  icon: "tag"
+  color: "blue"
