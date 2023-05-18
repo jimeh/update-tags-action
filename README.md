@@ -4,7 +4,7 @@
 
 <p align="center">
   <strong>
-    Create/update git tags via GitHub API.
+    Easily create/update one or more Git tags in a GitHub repository.
   </strong>
 </p>
 
@@ -23,11 +23,12 @@
   </a>
 </p>
 
-A simple action to easily create/update one or more tags in a GitHub repository.
-
 Generally useful for moving major (`v1`) and minor (`v1.2`) tags to same commit
-as the latest `v1.x.x` tag. This action uses itself to move it's own major and
-minor tags.
+as the latest `v1.x.x` tag.
+
+This action
+[uses itself](https://github.com/jimeh/update-tags-action/blob/main/.github/workflows/ci.yml)
+to move its own major and minor tags.
 
 ## Examples
 
