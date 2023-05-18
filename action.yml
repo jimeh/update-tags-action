@@ -1,6 +1,11 @@
-name: "Update Tags Action"
-description: "Create/update Git tags to point to a given sha or ref"
+name: "update-tags-action"
+description: "Easily create/update one or more tags in a GitHub repository."
 author: "jimeh"
+
+branding:
+  icon: "tag"
+  color: "blue"
+
 inputs:
   tags:
     description: "List/CSV of tags to create/update."
@@ -31,6 +36,3 @@ outputs:
 runs:
   using: "node16"
   main: "dist/index.js"
-branding:
-  icon: "tag"
-  color: "blue"
