@@ -23,8 +23,7 @@
   </a>
 </p>
 
-A simple action which makes it easy to create/update one or more tags on a
-GitHub repository.
+A simple action to easily create/update one or more tags in a GitHub repository.
 
 Generally useful for moving major (`v1`) and minor (`v1.2`) tags to same commit
 as the latest `v1.x.x` tag. This action uses itself to move it's own major and
@@ -35,13 +34,13 @@ minor tags.
 ### Basic
 
 ```yaml
-- uses: jimeh/update-tags-action@v0
+- uses: jimeh/update-tags-action@v1
   with:
     tags: v1,v1.2
 ```
 
 ```yaml
-- uses: jimeh/update-tags-action@v0
+- uses: jimeh/update-tags-action@v1
   with:
     tags: |
       v1
@@ -67,7 +66,7 @@ jobs:
     steps:
       - uses: jimeh/release-please-manifest-action@v1
         id: release-please
-      - uses: jimeh/update-tags-action@v0
+      - uses: jimeh/update-tags-action@v1
         with:
           tags: |
             v${{ steps.release-please.outputs.major }}
