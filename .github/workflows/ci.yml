@@ -29,7 +29,7 @@ jobs:
           private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
       - name: MAJOR and MAJOR.MINOR tags
         if: ${{ steps.release.outputs.release_created }}
-        uses: jimeh/update-tags-action@main
+        uses: jimeh/update-tags-action@v1
         with:
           tags: |
             v${{ steps.release.outputs.major }}
