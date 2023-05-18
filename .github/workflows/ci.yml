@@ -1,0 +1,36 @@
+---
+name: CI
+on: push
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "npm"
+      - run: npm ci
+      - name: Run build script
+        run: npm run build
+      - name: Verify no changes after build
+        run: |
+          git diff --exit-code
+
+  release-please:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: jimeh/release-please-manifest-action@v1
+        id: release
+        with:
+          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+      - name: MAJOR and MAJOR.MINOR tags
+        if: ${{ steps.release.outputs.release_created }}
+        uses: jimeh/update-tags-action@alpha
+        with:
+          tags: |
+            v${{ steps.release.outputs.major }}
+            v${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}
