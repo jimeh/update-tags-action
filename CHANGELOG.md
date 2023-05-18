@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/jimeh/update-tags-action/compare/v1.0.0...v1.0.1) (2023-05-18)
+
+
+### Bug Fixes
+
+* **action:** tweak metadata for GitHub Marketplace ([#4](https://github.com/jimeh/update-tags-action/issues/4)) ([b74b3c7](https://github.com/jimeh/update-tags-action/commit/b74b3c77fc20bdfd61e29dbf680a9f84612e5fda))
+
 ## [1.0.0](https://github.com/jimeh/update-tags-action/compare/v0.0.1...v1.0.0) (2023-05-18)
 
 
