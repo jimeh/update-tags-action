@@ -1,21 +1,26 @@
 const core = require("@actions/core");
 const github = require("@actions/github");
-const { parse } = require("csv-parse/sync");
+const csv = require("csv-parse/sync");
+const semver = require("semver");
+const handlebars = require("handlebars");
 
 async function run() {
   try {
-    const tagsInput = core.getInput("tags", { required: true });
+    let parseVersion = core.getInput("parse_version");
     const defaultRef = core.getInput("ref");
     const token = core.getInput("github_token", { required: true });
     const whenExists = core.getInput("when_exists") || "update";
 
-    const octokit = github.getOctokit(token);
+    const tagsInput = core.getInput("tags", { required: true });
+    const tagsRendered = parseVersionAndRenderTags(parseVersion, tagsInput);
 
-    const parsedTags = parse(tagsInput, {
-      delimiter: ",",
-      trim: true,
-      relax_column_count: true,
-    }).flat();
+    const parsedTags = csv
+      .parse(tagsRendered, {
+        delimiter: ",",
+        trim: true,
+        relax_column_count: true,
+      })
+      .flat();
 
     const { owner, repo } = github.context.repo;
 
@@ -29,6 +34,8 @@ async function run() {
       tags[t] = ref;
       uniqueRefs.add(ref);
     }
+
+    const octokit = github.getOctokit(token);
 
     // Pre-resolve all unique refs
     for (const ref of uniqueRefs) {
@@ -68,7 +75,7 @@ async function run() {
 
           core.info(
             `Tag '${tagName}' exists, updating to SHA ${sha} ` +
-            `(was ${existingSHA}).`
+              `(was ${existingSHA}).`
           );
           await octokit.rest.git.updateRef({
             owner,
@@ -86,7 +93,7 @@ async function run() {
         } else {
           core.setFailed(
             `Invalid value for 'when_exists': '${whenExists}'. ` +
-            `Valid values are 'update', 'skip', and 'fail'.`
+              `Valid values are 'update', 'skip', and 'fail'.`
           );
           return;
         }
@@ -115,20 +122,50 @@ async function run() {
   }
 }
 
+function parseVersionAndRenderTags(parseVersion, tags) {
+  if (!parseVersion) {
+    return tags;
+  }
+
+  if (parseVersion.startsWith("refs/tags/")) {
+    parseVersion = parseVersion.substring("refs/tags/".length);
+  }
+
+  const version = semver.parse(parseVersion);
+
+  if (!version && tags.includes("{{")) {
+    throw new Error(`Invalid version string: ${parseVersion}`);
+  }
+
+  if (version) {
+    const template = handlebars.compile(tags);
+    tags = template(version);
+  }
+
+  return tags;
+}
+
 async function resolveRefToSha(octokit, owner, repo, ref) {
   try {
     const {
       data: { sha },
-    } = await octokit.rest.repos.getCommit({
-      owner,
-      repo,
-      ref,
-    });
+    } = await octokit.rest.repos.getCommit({ owner, repo, ref });
 
     return sha;
   } catch (error) {
-    core.setFailed(`Failed to resolve ref '${ref}' to a SHA: ${error}`);
+    const errorMessage = `Failed to resolve ref '${ref}' to a SHA: ${error}`;
+    throw new Error(errorMessage);
   }
 }
 
-run();
+// Export run function for testing
+module.exports = {
+  run,
+  resolveRefToSha,
+  parseVersionAndRenderTags,
+};
+
+// Call run function to start action only if this file is being run directly.
+if (require.main === module) {
+  run();
+}

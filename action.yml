@@ -20,6 +20,12 @@ inputs:
       'fail'.
     required: false
     default: "update"
+  parse_version:
+    description: >-
+      Version string to parse as SemVer and expose via handlebars in the tags
+      input.
+    required: false
+    default: ""
   github_token:
     description: "The GitHub token to use for authentication."
     required: false

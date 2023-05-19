@@ -78,12 +78,13 @@ jobs:
 
 ## Inputs
 
-| parameter    | description                                                                       | required | default             |
-| ------------ | --------------------------------------------------------------------------------- | -------- | ------------------- |
-| tags         | List/CSV of tags to create/update.                                                | `true`   |                     |
-| ref          | The SHA or ref to tag. Defaults to SHA of current commit.                         | `false`  | ${{ github.sha }}   |
-| when_exists  | What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'. | `false`  | update              |
-| github_token | The GitHub token to use for authentication.                                       | `false`  | ${{ github.token }} |
+| parameter     | description                                                                       | required | default             |
+| ------------- | --------------------------------------------------------------------------------- | -------- | ------------------- |
+| tags          | List/CSV of tags to create/update.                                                | `true`   |                     |
+| ref           | The SHA or ref to tag. Defaults to SHA of current commit.                         | `false`  | ${{ github.sha }}   |
+| when_exists   | What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'. | `false`  | update              |
+| parse_version | Version string to parse as SemVer and expose via handlebars in the tags input.    | `false`  |                     |
+| github_token  | The GitHub token to use for authentication.                                       | `false`  | ${{ github.token }} |
 
 <!-- action-docs-inputs -->
 
