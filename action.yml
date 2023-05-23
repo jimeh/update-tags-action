@@ -14,18 +14,30 @@ inputs:
     description: "The SHA or ref to tag. Defaults to SHA of current commit."
     required: false
     default: "${{ github.sha }}"
-  when_exists:
+  parse:
     description: >-
-      What to do if the tag already exists. Must be one of 'update', 'skip', or
-      'fail'.
-    required: false
-    default: "update"
-  parse_version:
-    description: >-
-      Version string to parse as SemVer and expose via handlebars in the tags
-      input.
+      Version string to parse as SemVer and expose in the tags input via
+      templating.
     required: false
     default: ""
+  when_exists:
+    description: >-
+      What to do if the tag already exists. Must be one of 'update', 'skip',
+      'warn', or 'fail'.
+    required: false
+    default: "update"
+  when_parse_fails:
+    description: >-
+      What to do with non-empty `parse` input that fails to parse as a Semantic
+      Version. Must be one of 'warn' or 'fail'.
+    required: false
+    default: "fail"
+  skip_prerelease:
+    description: >-
+      When `parse` input is pre-release version, should templated tags be
+      skipped?
+    required: false
+    default: "true"
   github_token:
     description: "The GitHub token to use for authentication."
     required: false

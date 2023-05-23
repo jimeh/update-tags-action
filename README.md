@@ -78,13 +78,15 @@ jobs:
 
 ## Inputs
 
-| parameter     | description                                                                       | required | default             |
-| ------------- | --------------------------------------------------------------------------------- | -------- | ------------------- |
-| tags          | List/CSV of tags to create/update.                                                | `true`   |                     |
-| ref           | The SHA or ref to tag. Defaults to SHA of current commit.                         | `false`  | ${{ github.sha }}   |
-| when_exists   | What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'. | `false`  | update              |
-| parse_version | Version string to parse as SemVer and expose via handlebars in the tags input.    | `false`  |                     |
-| github_token  | The GitHub token to use for authentication.                                       | `false`  | ${{ github.token }} |
+| parameter        | description                                                                                                         | required | default             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------- | -------- | ------------------- |
+| tags             | List/CSV of tags to create/update.                                                                                  | `true`   |                     |
+| ref              | The SHA or ref to tag. Defaults to SHA of current commit.                                                           | `false`  | ${{ github.sha }}   |
+| parse            | Version string to parse as SemVer and expose in the tags input via templating.                                      | `false`  |                     |
+| when_exists      | What to do if the tag already exists. Must be one of 'update', 'skip', 'warn', or 'fail'.                           | `false`  | update              |
+| when_parse_fails | What to do with non-empty `parse` input that fails to parse as a Semantic Version. Must be one of 'warn' or 'fail'. | `false`  | fail                |
+| skip_prerelease  | When `parse` input is pre-release version, should templated tags be skipped?                                        | `false`  | true                |
+| github_token     | The GitHub token to use for authentication.                                                                         | `false`  | ${{ github.token }} |
 
 <!-- action-docs-inputs -->
 
