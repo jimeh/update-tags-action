@@ -1,0 +1,54 @@
+# This workflow checks the statuses of cached dependencies used in this action
+# with the help of the Licensed tool. If any licenses are invalid or missing,
+# this workflow will fail. See: https://github.com/licensee/licensed
+
+name: Licensed
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - uses: ruby/setup-ruby@d5126b9b3579e429dd52e51e68624dda2e05be25 # v1.267.0 # v1.266.0
+        with:
+          ruby-version: ruby
+          bundler-cache: true
+
+      # If this is a workflow_dispatch event, update the cached licenses.
+      - if: ${{ github.event_name == 'workflow_dispatch' }}
+        name: Update Licenses
+        id: update-licenses
+        run: bin/licensed cache
+
+      # Then, commit the updated licenses to the repository.
+      - if: ${{ github.event_name == 'workflow_dispatch' }}
+        name: Commit Licenses
+        id: commit-licenses
+        run: |
+          git config --local user.email "licensed-ci@users.noreply.github.com"
+          git config --local user.name "licensed-ci"
+          git add .
+          git commit -m "Auto-update license files"
+          git push
+
+      # Last, check the status of the cached licenses.
+      - name: Check Licenses
+        id: check-licenses
+        run: bin/licensed status

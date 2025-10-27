@@ -1,40 +1,76 @@
 {
   "name": "update-tags-action",
-  "version": "0.0.1",
-  "main": "dist/index.js",
-  "scripts": {
-    "build": "npm run dist && npm run update-readme",
-    "dist": "ncc build index.js --source-map --minify --license licenses.txt",
-    "lint": "eslint *.js",
-    "format": "eslint --fix *.js",
-    "update-readme": "action-docs --update-readme && prettier -w README.md"
+  "version": "1.0.1",
+  "author": "jimeh",
+  "type": "module",
+  "private": true,
+  "homepage": "https://github.com/jimeh/update-tags-action",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jimeh/update-tags-action.git"
   },
-  "devDependencies": {
-    "@vercel/ncc": "^0.36.1",
-    "action-docs": "^1.2.0",
-    "csv-parse": "^5.3.10",
-    "eslint": "^8.40.0",
-    "eslint-config-prettier": "^8.8.0",
-    "eslint-plugin-prettier": "^4.2.1",
-    "prettier": "^2.8.8",
-    "ts-jest": "^29.1.0",
-    "typescript": "^5.0.4"
+  "bugs": {
+    "url": "https://github.com/jimeh/update-tags-action/issues"
+  },
+  "keywords": [
+    "actions",
+    "github",
+    "git",
+    "tags",
+    "update"
+  ],
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "all": "npx npm-run-all -s format:write lint test coverage update-readme package",
+    "bundle": "npx npm-run-all -s format:write package",
+    "coverage": "npx make-coverage-badge --output-path ./badges/coverage.svg",
+    "format:check": "npx prettier --check .",
+    "format:write": "npx prettier --write .",
+    "licensed:cache": "bin/licensed cache",
+    "licensed:status": "bin/licensed status",
+    "lint": "npx eslint .",
+    "package": "npx rollup --config rollup.config.ts --configPlugin @rollup/plugin-typescript",
+    "package:watch": "npm run package -- --watch",
+    "test": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 jest",
+    "ci-test": "NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest",
+    "update-readme": "npx action-docs --update-readme && npx prettier --write README.md"
   },
   "dependencies": {
-    "@actions/core": "^1.10.0",
-    "@actions/github": "^5.1.1"
+    "@actions/core": "^1.11.1",
+    "@actions/github": "^6.0.1",
+    "csv-parse": "^6.1.0"
   },
-  "eslintConfig": {
-    "env": {
-      "node": true,
-      "es2021": true
-    },
-    "extends": [
-      "eslint:recommended",
-      "plugin:prettier/recommended"
-    ],
-    "plugins": [
-      "prettier"
-    ]
+  "devDependencies": {
+    "@eslint/compat": "^1.4.0",
+    "@jest/globals": "^30.2.0",
+    "@rollup/plugin-commonjs": "^28.0.9",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.3.0",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.9.1",
+    "@typescript-eslint/eslint-plugin": "^8.46.2",
+    "@typescript-eslint/parser": "^8.46.2",
+    "action-docs": "^2.5.1",
+    "eslint": "^9.38.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-jest": "^29.0.1",
+    "eslint-plugin-prettier": "^5.5.4",
+    "jest": "^30.2.0",
+    "make-coverage-badge": "^1.2.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.6.2",
+    "prettier-eslint": "^16.4.2",
+    "rollup": "^4.52.5",
+    "ts-jest": "^29.4.5",
+    "ts-jest-resolver": "^2.0.1",
+    "typescript": "^5.9.3"
   }
 }
