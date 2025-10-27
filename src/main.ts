@@ -19,14 +19,21 @@ export async function run(): Promise<void> {
       return
     }
 
-    const { tags, whenExists, owner, repo, octokit } = inputs
+    const { tags, whenExists, annotation, owner, repo, octokit } = inputs
 
     const created: string[] = []
     const updated: string[] = []
 
     // Create or update all tags.
     for (const tag of tags) {
-      const result = await processTag(tag, whenExists, owner, repo, octokit)
+      const result = await processTag(
+        tag,
+        whenExists,
+        annotation,
+        owner,
+        repo,
+        octokit
+      )
 
       if (result === 'failed') {
         return

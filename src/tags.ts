@@ -99,6 +99,7 @@ export async function parseTagsInput(
  *
  * @param tag - The desired tag to process
  * @param whenExists - What to do if the tag already exists
+ * @param annotation - Optional annotation message for the tag
  * @param owner - Repository owner
  * @param repo - Repository name
  * @param octokit - GitHub API client
@@ -107,6 +108,7 @@ export async function parseTagsInput(
 export async function processTag(
   tag: Tag,
   whenExists: 'update' | 'skip' | 'fail',
+  annotation: string,
   owner: string,
   repo: string,
   octokit: ReturnType<typeof github.getOctokit>
@@ -124,22 +126,28 @@ export async function processTag(
     // If the tag exists, decide action based on 'when_exists'.
     if (whenExists === 'update') {
       const existingSHA = existing.data.object.sha
-      if (existingSHA === sha) {
+
+      // For annotated tags, we need to get the commit SHA from the tag object
+      let existingCommitSHA = existingSHA
+      if (existing.data.object.type === 'tag') {
+        const tagObject = await octokit.rest.git.getTag({
+          owner,
+          repo,
+          tag_sha: existingSHA
+        })
+        existingCommitSHA = tagObject.data.object.sha
+      }
+
+      if (existingCommitSHA === sha) {
         core.info(`Tag '${tagName}' already exists with desired SHA ${sha}.`)
         return 'skipped'
       }
 
       core.info(
         `Tag '${tagName}' exists, updating to SHA ${sha} ` +
-          `(was ${existingSHA}).`
+          `(was ${existingCommitSHA}).`
       )
-      await octokit.rest.git.updateRef({
-        owner,
-        repo,
-        ref: `tags/${tagName}`,
-        sha,
-        force: true
-      })
+      await updateTag(tagName, sha, annotation, owner, repo, octokit)
       return 'updated'
     } else if (whenExists === 'skip') {
       core.info(`Tag '${tagName}' exists, skipping.`)
@@ -157,14 +165,94 @@ export async function processTag(
 
     // If the tag doesn't exist (404), create it.
     core.info(`Tag '${tagName}' does not exist, creating with SHA ${sha}.`)
-    await octokit.rest.git.createRef({
-      owner,
-      repo,
-      ref: `refs/tags/${tagName}`,
-      sha
-    })
+    await createTag(tagName, sha, annotation, owner, repo, octokit)
     return 'created'
   }
+}
+
+/**
+ * Create a tag (annotated or lightweight based on annotation parameter).
+ *
+ * @param tagName - Name of the tag
+ * @param sha - Commit SHA to tag
+ * @param annotation - Optional annotation message
+ * @param owner - Repository owner
+ * @param repo - Repository name
+ * @param octokit - GitHub API client
+ */
+async function createTag(
+  tagName: string,
+  sha: string,
+  annotation: string,
+  owner: string,
+  repo: string,
+  octokit: ReturnType<typeof github.getOctokit>
+): Promise<void> {
+  let refSha = sha
+
+  // If annotation is provided, create an annotated tag object first
+  if (annotation) {
+    const tagObject = await octokit.rest.git.createTag({
+      owner,
+      repo,
+      tag: tagName,
+      message: annotation,
+      object: sha,
+      type: 'commit'
+    })
+    refSha = tagObject.data.sha
+  }
+
+  // Create the reference pointing to the tag object (or commit for lightweight)
+  await octokit.rest.git.createRef({
+    owner,
+    repo,
+    ref: `refs/tags/${tagName}`,
+    sha: refSha
+  })
+}
+
+/**
+ * Update a tag to point to a new SHA.
+ *
+ * @param tagName - Name of the tag
+ * @param sha - New commit SHA
+ * @param annotation - Optional annotation message
+ * @param owner - Repository owner
+ * @param repo - Repository name
+ * @param octokit - GitHub API client
+ */
+async function updateTag(
+  tagName: string,
+  sha: string,
+  annotation: string,
+  owner: string,
+  repo: string,
+  octokit: ReturnType<typeof github.getOctokit>
+): Promise<void> {
+  let refSha = sha
+
+  // If annotation is provided, create an annotated tag object first
+  if (annotation) {
+    const tagObject = await octokit.rest.git.createTag({
+      owner,
+      repo,
+      tag: tagName,
+      message: annotation,
+      object: sha,
+      type: 'commit'
+    })
+    refSha = tagObject.data.sha
+  }
+
+  // Update the reference
+  await octokit.rest.git.updateRef({
+    owner,
+    repo,
+    ref: `tags/${tagName}`,
+    sha: refSha,
+    force: true
+  })
 }
 
 async function resolveRefToSha(

@@ -8,6 +8,7 @@ export type WhenExistsMode = (typeof WHEN_EXISTS_MODES)[number]
 export interface Inputs {
   tags: Tag[]
   whenExists: WhenExistsMode
+  annotation: string
   owner: string
   repo: string
   octokit: ReturnType<typeof github.getOctokit>
@@ -40,6 +41,7 @@ export async function getInputs(): Promise<Inputs> {
   const defaultRef: string = core.getInput('ref')
   const whenExistsInput = core.getInput('when_exists') || 'update'
   const whenExists = validateWhenExists(whenExistsInput)
+  const annotation: string = core.getInput('annotation') || ''
   const token: string = core.getInput('github_token', {
     required: true
   })
@@ -52,6 +54,7 @@ export async function getInputs(): Promise<Inputs> {
   return {
     tags,
     whenExists,
+    annotation,
     owner,
     repo,
     octokit

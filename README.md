@@ -40,6 +40,25 @@ to move its own major and minor tags.
 
 <!-- x-release-please-end -->
 
+### Annotated Tags
+
+Create annotated tags with a custom message:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    tags: v1.0.0
+    annotation: |
+      Release version 1.0.0
+
+      This is a major release with new features and bug fixes.
+```
+
+Annotated tags in Git include metadata such as the tagger's name, email, date,
+and a message. They are stored as full objects in the Git database and are
+recommended for releases. If the `annotation` input is not provided (or is
+empty), lightweight tags will be created instead.
+
 ### With Release Please
 
 This example uses
@@ -104,12 +123,13 @@ jobs:
 
 ## Inputs
 
-| parameter    | description                                                                       | required | default             |
-| ------------ | --------------------------------------------------------------------------------- | -------- | ------------------- |
-| tags         | List/CSV of tags to create/update.                                                | `true`   |                     |
-| ref          | The SHA or ref to tag. Defaults to SHA of current commit.                         | `false`  | ${{ github.sha }}   |
-| when_exists  | What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'. | `false`  | update              |
-| github_token | The GitHub token to use for authentication.                                       | `false`  | ${{ github.token }} |
+| parameter    | description                                                                                                  | required | default             |
+| ------------ | ------------------------------------------------------------------------------------------------------------ | -------- | ------------------- |
+| tags         | List/CSV of tags to create/update.                                                                           | `true`   |                     |
+| ref          | The SHA or ref to tag. Defaults to SHA of current commit.                                                    | `false`  | ${{ github.sha }}   |
+| when_exists  | What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.                            | `false`  | update              |
+| annotation   | Optional annotation message for the tag. If provided, creates an annotated tag instead of a lightweight tag. | `false`  |                     |
+| github_token | The GitHub token to use for authentication.                                                                  | `false`  | ${{ github.token }} |
 
 <!-- action-docs-inputs -->
 

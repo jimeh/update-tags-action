@@ -654,4 +654,215 @@ describe('run', () => {
       'v4'
     ])
   })
+
+  describe('annotated tags', () => {
+    it('creates annotated tags when annotation is provided', async () => {
+      setupInputs({
+        tags: 'v1.0.0',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Release version 1.0.0'
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'tag-object-sha' }
+      })
+
+      await run()
+
+      // Should create tag object first
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1.0.0',
+        message: 'Release version 1.0.0',
+        object: 'sha-abc123',
+        type: 'commit'
+      })
+
+      // Then create reference pointing to tag object
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1.0.0',
+        sha: 'tag-object-sha'
+      })
+
+      expect(core.setOutput).toHaveBeenCalledWith('created', ['v1.0.0'])
+    })
+
+    it('creates lightweight tags when annotation is empty', async () => {
+      setupInputs({
+        tags: 'v1.0.0',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: ''
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      // Should NOT create tag object
+      expect(github.mockOctokit.rest.git.createTag).not.toHaveBeenCalled()
+
+      // Should create reference pointing directly to commit
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1.0.0',
+        sha: 'sha-abc123'
+      })
+
+      expect(core.setOutput).toHaveBeenCalledWith('created', ['v1.0.0'])
+    })
+
+    it('updates tags with annotation', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'def456',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Updated version'
+      })
+      setupCommitResolver('sha-def456')
+      setupTagExistsForAll('sha-old123')
+
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'new-tag-object-sha' }
+      })
+
+      await run()
+
+      // Should create new tag object
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'Updated version',
+        object: 'sha-def456',
+        type: 'commit'
+      })
+
+      // Should update reference to new tag object
+      expect(github.mockOctokit.rest.git.updateRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'tags/v1',
+        sha: 'new-tag-object-sha',
+        force: true
+      })
+
+      expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    })
+
+    it('handles existing annotated tag and compares commit SHA', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Test annotation'
+      })
+      setupCommitResolver('sha-abc123')
+
+      // Mock existing annotated tag
+      github.mockOctokit.rest.git.getRef.mockResolvedValue({
+        data: {
+          ref: 'refs/tags/v1',
+          object: { sha: 'existing-tag-object-sha', type: 'tag' }
+        }
+      })
+
+      // Mock getTag to return commit SHA
+      github.mockOctokit.rest.git.getTag.mockResolvedValue({
+        data: {
+          sha: 'existing-tag-object-sha',
+          object: { sha: 'sha-abc123', type: 'commit' }
+        }
+      })
+
+      await run()
+
+      // Should fetch tag object to get commit SHA
+      expect(github.mockOctokit.rest.git.getTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag_sha: 'existing-tag-object-sha'
+      })
+
+      // Should skip update since commit SHA matches
+      expect(github.mockOctokit.rest.git.updateRef).not.toHaveBeenCalled()
+      expect(github.mockOctokit.rest.git.createTag).not.toHaveBeenCalled()
+      expect(core.info).toHaveBeenCalledWith(
+        "Tag 'v1' already exists with desired SHA sha-abc123."
+      )
+      expect(core.setOutput).toHaveBeenCalledWith('created', [])
+      expect(core.setOutput).toHaveBeenCalledWith('updated', [])
+    })
+
+    it('updates existing annotated tag when commit SHA differs', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'def456',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Updated annotation'
+      })
+      setupCommitResolver('sha-def456')
+
+      // Mock existing annotated tag
+      github.mockOctokit.rest.git.getRef.mockResolvedValue({
+        data: {
+          ref: 'refs/tags/v1',
+          object: { sha: 'existing-tag-object-sha', type: 'tag' }
+        }
+      })
+
+      // Mock getTag to return different commit SHA
+      github.mockOctokit.rest.git.getTag.mockResolvedValue({
+        data: {
+          sha: 'existing-tag-object-sha',
+          object: { sha: 'sha-old123', type: 'commit' }
+        }
+      })
+
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'new-tag-object-sha' }
+      })
+
+      await run()
+
+      // Should fetch tag object to get commit SHA
+      expect(github.mockOctokit.rest.git.getTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag_sha: 'existing-tag-object-sha'
+      })
+
+      // Should create new tag object and update reference
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'Updated annotation',
+        object: 'sha-def456',
+        type: 'commit'
+      })
+
+      expect(github.mockOctokit.rest.git.updateRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'tags/v1',
+        sha: 'new-tag-object-sha',
+        force: true
+      })
+
+      expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    })
+  })
 })
