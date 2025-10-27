@@ -171,6 +171,36 @@ export async function processTag(
 }
 
 /**
+ * Create a tag object for an annotated tag.
+ *
+ * @param tagName - Name of the tag
+ * @param sha - Commit SHA to tag
+ * @param annotation - Annotation message
+ * @param owner - Repository owner
+ * @param repo - Repository name
+ * @param octokit - GitHub API client
+ * @returns SHA of the created tag object
+ */
+async function createTagObject(
+  tagName: string,
+  sha: string,
+  annotation: string,
+  owner: string,
+  repo: string,
+  octokit: ReturnType<typeof github.getOctokit>
+): Promise<string> {
+  const tagObject = await octokit.rest.git.createTag({
+    owner,
+    repo,
+    tag: tagName,
+    message: annotation,
+    object: sha,
+    type: 'commit'
+  })
+  return tagObject.data.sha
+}
+
+/**
  * Create a tag (annotated or lightweight based on annotation parameter).
  *
  * @param tagName - Name of the tag
@@ -190,17 +220,16 @@ async function createTag(
 ): Promise<void> {
   let refSha = sha
 
-  // If annotation is provided, create an annotated tag object first
-  if (annotation) {
-    const tagObject = await octokit.rest.git.createTag({
+  // If annotation is provided and non-empty, create an annotated tag object first
+  if (annotation && annotation.trim()) {
+    refSha = await createTagObject(
+      tagName,
+      sha,
+      annotation,
       owner,
       repo,
-      tag: tagName,
-      message: annotation,
-      object: sha,
-      type: 'commit'
-    })
-    refSha = tagObject.data.sha
+      octokit
+    )
   }
 
   // Create the reference pointing to the tag object (or commit for lightweight)
@@ -232,17 +261,16 @@ async function updateTag(
 ): Promise<void> {
   let refSha = sha
 
-  // If annotation is provided, create an annotated tag object first
-  if (annotation) {
-    const tagObject = await octokit.rest.git.createTag({
+  // If annotation is provided and non-empty, create an annotated tag object first
+  if (annotation && annotation.trim()) {
+    refSha = await createTagObject(
+      tagName,
+      sha,
+      annotation,
       owner,
       repo,
-      tag: tagName,
-      message: annotation,
-      object: sha,
-      type: 'commit'
-    })
-    refSha = tagObject.data.sha
+      octokit
+    )
   }
 
   // Update the reference

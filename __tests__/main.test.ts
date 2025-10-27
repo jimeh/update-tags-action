@@ -721,6 +721,33 @@ describe('run', () => {
       expect(core.setOutput).toHaveBeenCalledWith('created', ['v1.0.0'])
     })
 
+    it('creates lightweight tags when annotation is only whitespace', async () => {
+      setupInputs({
+        tags: 'v1.0.0',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: '   '
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      // Should NOT create tag object for whitespace-only annotation
+      expect(github.mockOctokit.rest.git.createTag).not.toHaveBeenCalled()
+
+      // Should create reference pointing directly to commit
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1.0.0',
+        sha: 'sha-abc123'
+      })
+
+      expect(core.setOutput).toHaveBeenCalledWith('created', ['v1.0.0'])
+    })
+
     it('updates tags with annotation', async () => {
       setupInputs({
         tags: 'v1',
