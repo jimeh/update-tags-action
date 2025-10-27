@@ -25,13 +25,13 @@ to move its own major and minor tags.
 <!-- x-release-please-start-major -->
 
 ```yaml
-- uses: jimeh/update-tags-action@v1
+- uses: jimeh/update-tags-action@v2
   with:
     tags: v1,v1.2
 ```
 
 ```yaml
-- uses: jimeh/update-tags-action@v1
+- uses: jimeh/update-tags-action@v2
   with:
     tags: |
       v1
@@ -91,7 +91,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: jimeh/update-tags-action@v1
+      - uses: jimeh/update-tags-action@v2
         with:
           tags: |
             v${{ needs.release-please.outputs.major }}
