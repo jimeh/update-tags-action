@@ -27,7 +27,7 @@ to move its own major and minor tags.
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    tags: v2,v2.0
+    tags: v2,v2.1
 ```
 
 ```yaml
@@ -35,7 +35,7 @@ to move its own major and minor tags.
   with:
     tags: |
       v2
-      v2.0
+      v2.1
 ```
 
 <!-- x-release-please-end -->

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.1.0](https://github.com/jimeh/update-tags-action/compare/v2.0.0...v2.1.0) (2025-10-28)
+
+
+### Features
+
+* **tag:** add support for annotated tags and improved tag handling ([40c0c24](https://github.com/jimeh/update-tags-action/commit/40c0c24c3478fe96765282b3f82b7f72696f0e92)), closes [#7](https://github.com/jimeh/update-tags-action/issues/7)
+
+
+### Bug Fixes
+
+* **when_exists:** fail-fast if tags exist if `when_exists` is `fail` ([40c0c24](https://github.com/jimeh/update-tags-action/commit/40c0c24c3478fe96765282b3f82b7f72696f0e92))
+
 ## [2.0.0](https://github.com/jimeh/update-tags-action/compare/v1.0.1...v2.0.0) (2025-10-27)
 
 
