@@ -23,6 +23,7 @@ to move its own major and minor tags.
 ### Basic
 
 <!-- x-release-please-start-major -->
+<!-- x-release-please-start-minor -->
 
 ```yaml
 - uses: jimeh/update-tags-action@v2
@@ -38,6 +39,7 @@ to move its own major and minor tags.
       v1.2
 ```
 
+<!-- x-release-please-end -->
 <!-- x-release-please-end -->
 
 ### With Release Please
