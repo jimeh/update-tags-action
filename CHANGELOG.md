@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/jimeh/update-tags-action/compare/v2.1.0...v2.1.1) (2025-10-28)
+
+
+### Documentation
+
+* **readme:** fix outdated action inputs/outputs ([#26](https://github.com/jimeh/update-tags-action/issues/26)) ([c2d45bd](https://github.com/jimeh/update-tags-action/commit/c2d45bd3eff96a93679cc5dbac166c5a14400751))
+
 ## [2.1.0](https://github.com/jimeh/update-tags-action/compare/v2.0.0...v2.1.0) (2025-10-28)
 
 
