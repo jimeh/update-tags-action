@@ -100,30 +100,37 @@ jobs:
 
 <!-- x-release-please-end -->
 
-<!-- action-docs-inputs -->
+<!-- action-docs-inputs source="action.yml" -->
 
 ## Inputs
 
-| parameter    | description                                                                       | required | default             |
-| ------------ | --------------------------------------------------------------------------------- | -------- | ------------------- |
-| tags         | List/CSV of tags to create/update.                                                | `true`   |                     |
-| ref          | The SHA or ref to tag. Defaults to SHA of current commit.                         | `false`  | ${{ github.sha }}   |
-| when_exists  | What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'. | `false`  | update              |
-| github_token | The GitHub token to use for authentication.                                       | `false`  | ${{ github.token }} |
+| name           | description                                                                                                           | required | default               |
+| -------------- | --------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
+| `tags`         | <p>List/CSV of tags to create/update.</p>                                                                             | `true`   | `""`                  |
+| `ref`          | <p>The SHA or ref to tag. Defaults to SHA of current commit.</p>                                                      | `false`  | `${{ github.sha }}`   |
+| `when_exists`  | <p>What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.</p>                              | `false`  | `update`              |
+| `annotation`   | <p>Optional annotation message for tags. If provided, creates annotated tags. If empty, creates lightweight tags.</p> | `false`  | `""`                  |
+| `github_token` | <p>The GitHub token to use for authentication.</p>                                                                    | `false`  | `${{ github.token }}` |
 
-<!-- action-docs-inputs -->
-
-<!-- action-docs-outputs -->
+<!-- action-docs-inputs source="action.yml" -->
+<!-- action-docs-outputs source="action.yml" -->
 
 ## Outputs
 
-| parameter | description                             |
-| --------- | --------------------------------------- |
-| tags      | List of tags that were created/updated. |
-| created   | List of tags that were created.         |
-| updated   | List of tags that were updated.         |
+| name      | description                                    |
+| --------- | ---------------------------------------------- |
+| `tags`    | <p>List of tags that were created/updated.</p> |
+| `created` | <p>List of tags that were created.</p>         |
+| `updated` | <p>List of tags that were updated.</p>         |
 
-<!-- action-docs-outputs -->
+<!-- action-docs-outputs source="action.yml" -->
+<!-- action-docs-runs source="action.yml" -->
+
+## Runs
+
+This action is a `node24` action.
+
+<!-- action-docs-runs source="action.yml" -->
 
 ## License
 
