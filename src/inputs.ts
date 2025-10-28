@@ -1,16 +1,18 @@
 import * as core from '@actions/core'
 import * as github from '@actions/github'
-import { parseTagsInput, type Tag } from './tags.js'
+import { parse } from 'csv-parse/sync'
 
 const WHEN_EXISTS_MODES = ['update', 'skip', 'fail'] as const
 export type WhenExistsMode = (typeof WHEN_EXISTS_MODES)[number]
 
 export interface Inputs {
-  tags: Tag[]
+  tags: string[]
+  defaultRef: string
   whenExists: WhenExistsMode
+  annotation: string
   owner: string
   repo: string
-  octokit: ReturnType<typeof github.getOctokit>
+  token: string
 }
 
 /**
@@ -35,25 +37,34 @@ function validateWhenExists(input: string): WhenExistsMode {
  *
  * @returns Parsed and validated inputs
  */
-export async function getInputs(): Promise<Inputs> {
+export function getInputs(): Inputs {
   const tagsInput: string = core.getInput('tags', { required: true })
   const defaultRef: string = core.getInput('ref')
   const whenExistsInput = core.getInput('when_exists') || 'update'
   const whenExists = validateWhenExists(whenExistsInput)
+  const annotation: string = core.getInput('annotation')
   const token: string = core.getInput('github_token', {
     required: true
   })
 
-  const octokit = github.getOctokit(token)
   const { owner, repo } = github.context.repo
 
-  const tags = await parseTagsInput(octokit, tagsInput, defaultRef, owner, repo)
+  // Parse tags as CSV/newline delimited strings
+  const tags = (
+    parse(tagsInput, {
+      delimiter: ',',
+      trim: true,
+      relax_column_count: true
+    }) as string[][]
+  ).flat()
 
   return {
     tags,
+    defaultRef,
     whenExists,
+    annotation,
     owner,
     repo,
-    octokit
+    token
   }
 }
