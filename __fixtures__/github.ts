@@ -5,7 +5,9 @@ export const mockOctokit = {
     git: {
       getRef: jest.fn<(args: unknown) => Promise<unknown>>(),
       createRef: jest.fn<(args: unknown) => Promise<unknown>>(),
-      updateRef: jest.fn<(args: unknown) => Promise<unknown>>()
+      updateRef: jest.fn<(args: unknown) => Promise<unknown>>(),
+      createTag: jest.fn<(args: unknown) => Promise<unknown>>(),
+      getTag: jest.fn<(args: unknown) => Promise<unknown>>()
     },
     repos: {
       getCommit: jest.fn<(args: unknown) => Promise<unknown>>()

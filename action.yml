@@ -20,6 +20,12 @@ inputs:
       'fail'.
     required: false
     default: "update"
+  annotation:
+    description: >-
+      Optional annotation message for tags. If provided, creates annotated tags.
+      If empty, creates lightweight tags.
+    required: false
+    default: ""
   github_token:
     description: "The GitHub token to use for authentication."
     required: false
