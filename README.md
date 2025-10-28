@@ -22,7 +22,7 @@ to move its own major and minor tags.
 
 ### Basic
 
-<!-- x-release-please-start-version -->
+<!-- x-release-please-start-minor -->
 
 ```yaml
 - uses: jimeh/update-tags-action@v2
