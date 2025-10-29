@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.0](https://github.com/jimeh/update-tags-action/compare/v2.1.1...v2.2.0) (2025-10-29)
+
+
+### Features
+
+* **action:** add skipped tags output and tracking ([#33](https://github.com/jimeh/update-tags-action/issues/33)) ([6723e4d](https://github.com/jimeh/update-tags-action/commit/6723e4d4aceb3ba7314907830d8b1d5186f0a5d9))
+
 ## [2.1.1](https://github.com/jimeh/update-tags-action/compare/v2.1.0...v2.1.1) (2025-10-28)
 
 
