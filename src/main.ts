@@ -10,29 +10,9 @@ import { resolveDesiredTags, processTag } from './tags.js'
  */
 export async function run(): Promise<void> {
   try {
-    let inputs
-    try {
-      inputs = getInputs()
-    } catch (error) {
-      // For parsing/validation errors, pass message directly.
-      const message = error instanceof Error ? error.message : String(error)
-      core.setFailed(message)
-      return
-    }
-
-    // Create GitHub API client
+    const inputs = getInputs()
     const octokit = github.getOctokit(inputs.token)
-
-    let tags
-    try {
-      tags = await resolveDesiredTags(inputs, octokit)
-    } catch (error) {
-      // For tag resolution errors (ref resolution, tag existence checks), pass
-      // message directly.
-      const message = error instanceof Error ? error.message : String(error)
-      core.setFailed(message)
-      return
-    }
+    const tags = await resolveDesiredTags(inputs, octokit)
 
     const created: string[] = []
     const updated: string[] = []
@@ -41,9 +21,7 @@ export async function run(): Promise<void> {
     for (const tag of tags) {
       const result = await processTag(tag, octokit)
 
-      if (result === 'failed') {
-        return
-      } else if (result === 'created') {
+      if (result === 'created') {
         created.push(tag.name)
       } else if (result === 'updated') {
         updated.push(tag.name)
@@ -54,6 +32,7 @@ export async function run(): Promise<void> {
     core.setOutput('updated', updated)
     core.setOutput('tags', created.concat(updated))
   } catch (error) {
-    core.setFailed(`Action failed with error: ${String(error)}`)
+    const message = error instanceof Error ? error.message : String(error)
+    core.setFailed(message)
   }
 }
