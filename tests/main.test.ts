@@ -2,9 +2,9 @@
  * Unit tests for the action's main functionality, src/main.ts
  */
 import { jest } from '@jest/globals'
-import * as core from '../__fixtures__/core.js'
-import * as github from '../__fixtures__/github.js'
-import * as csvParse from '../__fixtures__/csv-parse.js'
+import * as core from './fixtures/core.js'
+import * as github from './fixtures/github.js'
+import * as csvParse from './fixtures/csv-parse.js'
 
 // Mocks should be declared before the module being tested is imported.
 jest.unstable_mockModule('@actions/core', () => core)

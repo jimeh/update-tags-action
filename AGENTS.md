@@ -35,7 +35,7 @@ npm run package       # Build src/index.ts -> dist/index.js via Rollup
 npm run bundle        # Alias: format + package
 
 # Run a single test file
-NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest __tests__/main.test.ts
+NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest tests/main.test.ts
 
 # CI variants (suppress warnings)
 npm run ci-test       # Run tests in CI mode
@@ -65,7 +65,7 @@ npm run package:watch # Auto-rebuild on changes
   - `processTag()`: Creates/updates individual tags based on `when_exists` mode
   - `resolveRefToSha()`: Converts git refs to commit SHAs (private helper)
 - **[action.yml](action.yml)**: GitHub Action metadata (inputs/outputs)
-- **[\_\_fixtures\_\_/](__fixtures__)**: Mock implementations of @actions/core,
+- **[tests/fixtures/](tests/fixtures)**: Mock implementations of @actions/core,
   @actions/github, and csv-parse for testing
 
 ### Tag Input Parsing
@@ -97,12 +97,12 @@ jest.unstable_mockModule('@actions/core', () => core)
 const { run } = await import('../src/main.ts')
 ```
 
-Mock fixtures live in `__fixtures__/` (e.g., `core.ts` mocks @actions/core).
+Mock fixtures live in `tests/fixtures/` (e.g., `core.ts` mocks @actions/core).
 
 ### Testing Best Practices
 
 - Consider edge cases as well as the main success path
-- Tests live in `__tests__/` directory, fixtures in `__fixtures__/`
+- Tests live in `tests/` directory, fixtures in `tests/fixtures/`
 - Run tests after any refactoring to ensure coverage requirements are met
 - Use `@actions/core` package for logging (not `console`) for GitHub Actions
   compatibility
