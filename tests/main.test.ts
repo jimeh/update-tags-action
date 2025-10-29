@@ -22,6 +22,19 @@ const setupInputs = (inputs: Record<string, string>): void => {
   })
 }
 
+let outputs: Record<string, unknown> = {}
+
+const setupOutputCapture = (): void => {
+  outputs = {}
+  core.setOutput.mockImplementation((name: string, value: unknown) => {
+    outputs[name] = value
+  })
+}
+
+const getOutputs = (): Record<string, unknown> => {
+  return { ...outputs }
+}
+
 const setupCommitResolver = (
   refToSha: Record<string, string> | string
 ): void => {
@@ -80,6 +93,7 @@ describe('run', () => {
     // Re-setup mocks after reset
     github.getOctokit.mockReturnValue(github.mockOctokit)
     csvParse.resetToRealImplementation()
+    setupOutputCapture()
   })
 
   it('creates new tags when they do not exist', async () => {
@@ -111,9 +125,12 @@ describe('run', () => {
     expect(core.info).toHaveBeenCalledWith(
       "Tag 'v1' does not exist, creating with commit SHA sha-abc123."
     )
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v1.0'])
-    expect(core.setOutput).toHaveBeenCalledWith('updated', [])
-    expect(core.setOutput).toHaveBeenCalledWith('tags', ['v1', 'v1.0'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v1.0'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v1.0']
+    })
   })
 
   it('updates existing tags when commit SHA differs', async () => {
@@ -140,9 +157,12 @@ describe('run', () => {
     expect(core.info).toHaveBeenCalledWith(
       "Tag 'v1' exists, updating to commit SHA sha-def456 (was sha-old123)."
     )
-    expect(core.setOutput).toHaveBeenCalledWith('created', [])
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
-    expect(core.setOutput).toHaveBeenCalledWith('tags', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('skips updating when tag exists with same commit SHA', async () => {
@@ -162,9 +182,12 @@ describe('run', () => {
     expect(core.info).toHaveBeenCalledWith(
       "Tag 'v1' already exists with desired commit SHA sha-abc123."
     )
-    expect(core.setOutput).toHaveBeenCalledWith('created', [])
-    expect(core.setOutput).toHaveBeenCalledWith('updated', [])
-    expect(core.setOutput).toHaveBeenCalledWith('tags', [])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: [],
+      skipped: ['v1'],
+      tags: []
+    })
   })
 
   it('skips tags when when_exists is skip', async () => {
@@ -182,9 +205,12 @@ describe('run', () => {
     expect(github.mockOctokit.rest.git.updateRef).not.toHaveBeenCalled()
     expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
     expect(core.info).toHaveBeenCalledWith("Tag 'v1' exists, skipping.")
-    expect(core.setOutput).toHaveBeenCalledWith('created', [])
-    expect(core.setOutput).toHaveBeenCalledWith('updated', [])
-    expect(core.setOutput).toHaveBeenCalledWith('tags', [])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: [],
+      skipped: ['v1'],
+      tags: []
+    })
   })
 
   it('handles per-tag ref overrides', async () => {
@@ -226,7 +252,12 @@ describe('run', () => {
       sha: 'sha-develop'
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v2'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2']
+    })
   })
 
   it('handles various input formats (newlines and whitespace)', async () => {
@@ -242,11 +273,12 @@ describe('run', () => {
     await run()
 
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(3)
-    expect(core.setOutput).toHaveBeenCalledWith('created', [
-      'v1',
-      'v1.0',
-      'v1.0.1'
-    ])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v1.0', 'v1.0.1'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v1.0', 'v1.0.1']
+    })
   })
 
   it('creates and updates tags in single run', async () => {
@@ -263,9 +295,12 @@ describe('run', () => {
 
     expect(github.mockOctokit.rest.git.updateRef).toHaveBeenCalledTimes(1)
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(1)
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v2'])
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
-    expect(core.setOutput).toHaveBeenCalledWith('tags', ['v2', 'v1'])
+    expect(getOutputs()).toEqual({
+      created: ['v2'],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v2', 'v1']
+    })
   })
 
   it('fails when ref is missing', async () => {
@@ -420,7 +455,12 @@ describe('run', () => {
     await run()
 
     expect(github.mockOctokit.rest.git.updateRef).toHaveBeenCalledTimes(1)
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('handles duplicate tags by using last occurrence', async () => {
@@ -437,7 +477,12 @@ describe('run', () => {
 
     // Should only create 2 tags (v1 and v2), not 3
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v2'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2']
+    })
   })
 
   it('optimizes by resolving unique refs only once', async () => {
@@ -458,6 +503,12 @@ describe('run', () => {
     // Should only call getCommit 2 times (main and develop), not 3
     expect(github.mockOctokit.rest.repos.getCommit).toHaveBeenCalledTimes(2)
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(3)
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2', 'v3'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2', 'v3']
+    })
   })
 
   it('handles tag with colon but empty ref part', async () => {
@@ -474,7 +525,12 @@ describe('run', () => {
 
     // Both should use default ref
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v2'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2']
+    })
   })
 
   it('fails when tag specification has multiple colons', async () => {
@@ -522,8 +578,12 @@ describe('run', () => {
     // Should skip v1, create v2 and v3
     expect(core.info).toHaveBeenCalledWith("Tag 'v1' exists, skipping.")
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v2', 'v3'])
-    expect(core.setOutput).toHaveBeenCalledWith('updated', [])
+    expect(getOutputs()).toEqual({
+      created: ['v2', 'v3'],
+      updated: [],
+      skipped: ['v1'],
+      tags: ['v2', 'v3']
+    })
   })
 
   it('fails when tag name is empty (e.g., ":main")', async () => {
@@ -618,7 +678,12 @@ describe('run', () => {
       sha: 'sha-abc123'
     })
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v2'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2']
+    })
   })
 
   it('skips empty lines in multi-line input (e.g., "v1\\n\\nv2")', async () => {
@@ -647,7 +712,12 @@ describe('run', () => {
       sha: 'sha-abc123'
     })
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v2'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2']
+    })
   })
 
   it('skips empty tags from mix of empty CSV fields and empty lines', async () => {
@@ -688,12 +758,12 @@ describe('run', () => {
       sha: 'sha-abc123'
     })
     expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(4)
-    expect(core.setOutput).toHaveBeenCalledWith('created', [
-      'v1',
-      'v2',
-      'v3',
-      'v4'
-    ])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v2', 'v3', 'v4'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v2', 'v3', 'v4']
+    })
   })
 
   it('creates annotated tags when annotation is provided', async () => {
@@ -748,7 +818,12 @@ describe('run', () => {
       sha: 'sha-tag-object-v1.0'
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1', 'v1.0'])
+    expect(getOutputs()).toEqual({
+      created: ['v1', 'v1.0'],
+      updated: [],
+      skipped: [],
+      tags: ['v1', 'v1.0']
+    })
   })
 
   it('updates existing tags with annotation', async () => {
@@ -787,7 +862,12 @@ describe('run', () => {
       force: true
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('creates lightweight tags when annotation is empty', async () => {
@@ -812,7 +892,12 @@ describe('run', () => {
       sha: 'sha-abc123'
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('created', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: ['v1'],
+      updated: [],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('updates lightweight tags when annotation is empty', async () => {
@@ -838,7 +923,12 @@ describe('run', () => {
       force: true
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('detects and dereferences existing annotated tags', async () => {
@@ -872,7 +962,12 @@ describe('run', () => {
 
     // Should update because commit SHAs differ
     expect(github.mockOctokit.rest.git.updateRef).toHaveBeenCalledTimes(1)
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('updates existing annotated tags with new annotated tags', async () => {
@@ -931,7 +1026,12 @@ describe('run', () => {
       force: true
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('updates annotated tag to lightweight when annotation removed', async () => {
@@ -970,7 +1070,12 @@ describe('run', () => {
       sha: 'sha-abc123',
       force: true
     })
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('skips when annotated tag has same commit and same annotation', async () => {
@@ -1000,7 +1105,12 @@ describe('run', () => {
     // Should NOT update because both commit and annotation match
     expect(github.mockOctokit.rest.git.updateRef).not.toHaveBeenCalled()
     expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
-    expect(core.setOutput).toHaveBeenCalledWith('tags', [])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: [],
+      skipped: ['v1'],
+      tags: []
+    })
   })
 
   it('updates when annotated tag has same commit but different annotation', async () => {
@@ -1052,7 +1162,12 @@ describe('run', () => {
       force: true
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 
   it('updates lightweight tag to annotated when annotation added', async () => {
@@ -1097,6 +1212,11 @@ describe('run', () => {
       force: true
     })
 
-    expect(core.setOutput).toHaveBeenCalledWith('updated', ['v1'])
+    expect(getOutputs()).toEqual({
+      created: [],
+      updated: ['v1'],
+      skipped: [],
+      tags: ['v1']
+    })
   })
 })

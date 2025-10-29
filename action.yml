@@ -38,6 +38,8 @@ outputs:
     description: "List of tags that were created."
   updated:
     description: "List of tags that were updated."
+  skipped:
+    description: "List of tags that were skipped."
 
 runs:
   using: node24
