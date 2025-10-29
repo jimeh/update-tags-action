@@ -122,6 +122,7 @@ jobs:
 | `tags`    | <p>List of tags that were created/updated.</p> |
 | `created` | <p>List of tags that were created.</p>         |
 | `updated` | <p>List of tags that were updated.</p>         |
+| `skipped` | <p>List of tags that were skipped.</p>         |
 
 <!-- action-docs-outputs source="action.yml" -->
 <!-- action-docs-runs source="action.yml" -->

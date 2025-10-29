@@ -16,6 +16,7 @@ export async function run(): Promise<void> {
 
     const created: string[] = []
     const updated: string[] = []
+    const skipped: string[] = []
 
     // Create or update all tags.
     for (const tag of tags) {
@@ -25,11 +26,14 @@ export async function run(): Promise<void> {
         created.push(tag.name)
       } else if (result === 'updated') {
         updated.push(tag.name)
+      } else if (result === 'skipped') {
+        skipped.push(tag.name)
       }
     }
 
     core.setOutput('created', created)
     core.setOutput('updated', updated)
+    core.setOutput('skipped', skipped)
     core.setOutput('tags', created.concat(updated))
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
