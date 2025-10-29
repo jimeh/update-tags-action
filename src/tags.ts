@@ -19,47 +19,12 @@ export interface DesiredTag {
   existing?: ExistingTagInfo
 }
 
-export type TagResult = 'created' | 'updated' | 'skipped' | 'failed'
+export type TagResult = 'created' | 'updated' | 'skipped'
 
-interface TagOperationContext {
+interface Context {
   owner: string
   repo: string
   octokit: ReturnType<typeof github.getOctokit>
-}
-
-/**
- * Fetch information about an existing tag, dereferencing if annotated.
- *
- * @param ctx - Operation context
- * @param existing - The existing tag reference data
- * @returns Information about the existing tag
- */
-async function fetchExistingTagInfo(
-  ctx: TagOperationContext,
-  existing: { data: { object: { sha: string; type: string } } }
-): Promise<ExistingTagInfo> {
-  const existingObject = existing.data.object
-  const isAnnotated = existingObject.type === 'tag'
-
-  if (!isAnnotated) {
-    return {
-      commitSHA: existingObject.sha,
-      isAnnotated: false
-    }
-  }
-
-  // Dereference annotated tag to get underlying commit
-  const tagObject = await ctx.octokit.rest.git.getTag({
-    owner: ctx.owner,
-    repo: ctx.repo,
-    tag_sha: existingObject.sha
-  })
-
-  return {
-    commitSHA: tagObject.data.object.sha,
-    isAnnotated: true,
-    annotation: tagObject.data.message
-  }
 }
 
 /**
@@ -73,19 +38,10 @@ export async function resolveDesiredTags(
   inputs: Inputs,
   octokit: ReturnType<typeof github.getOctokit>
 ): Promise<DesiredTag[]> {
-  const {
-    tags: parsedTags,
-    defaultRef,
-    whenExists,
-    annotation,
-    owner,
-    repo
-  } = inputs
-
   const uniqueRefs = new Set<string>()
-  const tags: Record<string, string> = {}
+  const tagRefs: Record<string, string> = {}
 
-  for (const tag of parsedTags) {
+  for (const tag of inputs.tags) {
     const parts = tag.split(':').map((s) => s.trim())
     if (parts.length > 2) {
       throw new Error(
@@ -102,51 +58,46 @@ export async function resolveDesiredTags(
       continue
     }
 
-    const ref = tagRef || defaultRef
+    const ref = tagRef || inputs.defaultRef
     if (!ref) {
       throw new Error("Missing ref: provide 'ref' input or specify per-tag ref")
     }
 
     // Check for duplicate tag with different ref
-    if (tags[tagName] && tags[tagName] !== ref) {
+    if (tagRefs[tagName] && tagRefs[tagName] !== ref) {
       throw new Error(
         `Duplicate tag '${tagName}' with different refs: ` +
-          `'${tags[tagName]}' and '${ref}'`
+          `'${tagRefs[tagName]}' and '${ref}'`
       )
     }
 
-    tags[tagName] = ref
+    tagRefs[tagName] = ref
     uniqueRefs.add(ref)
   }
 
   // Pre-resolve all unique refs in parallel.
-  const ctx: TagOperationContext = { owner, repo, octokit }
-  const refToSha: Record<string, string> = {}
+  const ctx: Context = { owner: inputs.owner, repo: inputs.repo, octokit }
+  const refSHAs: Record<string, string> = {}
   await Promise.all(
     Array.from(uniqueRefs).map(async (ref) => {
-      refToSha[ref] = await resolveRefToSha(ctx, ref)
+      refSHAs[ref] = await resolveRefToSha(ctx, ref)
     })
   )
 
   // Build result array with resolved SHAs and check for existing tags.
-  const tagNames = Object.keys(tags)
+  const tagNames = Object.keys(tagRefs)
   const result: DesiredTag[] = await Promise.all(
     tagNames.map(async (tagName) => {
-      const tagRef = tags[tagName]
-      const sha = refToSha[tagRef]
+      const tagRef = tagRefs[tagName]
+      const sha = refSHAs[tagRef]
 
       // Check if tag already exists
       let existing: ExistingTagInfo | undefined
       try {
-        const existingRef = await ctx.octokit.rest.git.getRef({
-          owner: ctx.owner,
-          repo: ctx.repo,
-          ref: `tags/${tagName}`
-        })
-        existing = await fetchExistingTagInfo(ctx, existingRef)
+        existing = await fetchTagInfo(ctx, tagName)
 
         // Fail early if when_exists is 'fail'
-        if (whenExists === 'fail') {
+        if (inputs.whenExists === 'fail') {
           throw new Error(`Tag '${tagName}' already exists.`)
         }
       } catch (error: unknown) {
@@ -161,14 +112,8 @@ export async function resolveDesiredTags(
               `Failed to check if tag '${tagName}' exists: ${apiError.message || String(error)}`
             )
           }
-        } else if (error instanceof Error) {
-          // Already an Error (e.g., from when_exists === 'fail')
-          throw error
         } else {
-          // Unknown error type
-          throw new Error(
-            `Failed to check if tag '${tagName}' exists: ${String(error)}`
-          )
+          throw error
         }
       }
 
@@ -176,10 +121,10 @@ export async function resolveDesiredTags(
         name: tagName,
         ref: tagRef,
         sha,
-        whenExists,
-        annotation,
-        owner,
-        repo,
+        whenExists: inputs.whenExists,
+        annotation: inputs.annotation,
+        owner: inputs.owner,
+        repo: inputs.repo,
         existing
       }
     })
@@ -188,10 +133,90 @@ export async function resolveDesiredTags(
   return result
 }
 
-async function resolveRefToSha(
-  ctx: TagOperationContext,
-  ref: string
-): Promise<string> {
+/**
+ * Process a single desired tag: create or update it based on configuration.
+ *
+ * @param tag - The desired tag to process (with existing info if applicable)
+ * @param octokit - GitHub API client
+ * @returns The result of the tag operation
+ */
+export async function processTag(
+  tag: DesiredTag,
+  octokit: ReturnType<typeof github.getOctokit>
+): Promise<TagResult> {
+  const ctx: Context = { owner: tag.owner, repo: tag.repo, octokit }
+
+  // Tag doesn't exist, create it
+  if (!tag.existing) {
+    return await createTag(ctx, tag)
+  }
+
+  // Tag exists - handle based on when_exists strategy
+  if (tag.whenExists === 'skip') {
+    core.info(`Tag '${tag.name}' exists, skipping.`)
+    return 'skipped'
+  }
+
+  // whenExists === 'update' - check if update is needed
+  if (tagMatchesTarget(tag)) {
+    core.info(
+      `Tag '${tag.name}' already exists with desired commit SHA ${tag.sha}` +
+        (tag.existing?.isAnnotated === true ? ' (annotated).' : '.')
+    )
+    return 'skipped'
+  }
+
+  return await updateExistingTag(ctx, tag)
+}
+
+/**
+ * Fetch information about an existing tag, dereferencing if annotated.
+ *
+ * @param ctx - Operation context
+ * @param tagName - The name of the tag to fetch
+ * @returns Information about the existing tag
+ */
+async function fetchTagInfo(
+  ctx: Context,
+  tagName: string
+): Promise<ExistingTagInfo> {
+  const ref = await ctx.octokit.rest.git.getRef({
+    owner: ctx.owner,
+    repo: ctx.repo,
+    ref: `tags/${tagName}`
+  })
+  const object = ref.data.object
+  const isAnnotated = object.type === 'tag'
+
+  if (!isAnnotated) {
+    return {
+      commitSHA: object.sha,
+      isAnnotated: false
+    }
+  }
+
+  // Dereference annotated tag to get underlying commit
+  const tagRef = await ctx.octokit.rest.git.getTag({
+    owner: ctx.owner,
+    repo: ctx.repo,
+    tag_sha: object.sha
+  })
+
+  return {
+    commitSHA: tagRef.data.object.sha,
+    isAnnotated: true,
+    annotation: tagRef.data.message
+  }
+}
+
+/**
+ * Resolve a ref to a SHA.
+ *
+ * @param ctx - Operation context
+ * @param ref - The ref to resolve
+ * @returns The SHA
+ */
+async function resolveRefToSha(ctx: Context, ref: string): Promise<string> {
   try {
     const {
       data: { sha }
@@ -208,60 +233,14 @@ async function resolveRefToSha(
 }
 
 /**
- * Process a single desired tag: create or update it based on configuration.
- *
- * @param tag - The desired tag to process (with existing info if applicable)
- * @param octokit - GitHub API client
- * @returns The result of the tag operation
- */
-export async function processTag(
-  tag: DesiredTag,
-  octokit: ReturnType<typeof github.getOctokit>
-): Promise<TagResult> {
-  const ctx: TagOperationContext = { owner: tag.owner, repo: tag.repo, octokit }
-
-  // Tag doesn't exist, create it
-  if (!tag.existing) {
-    return await createTag(ctx, tag)
-  }
-
-  // Tag exists - handle based on when_exists strategy
-  if (tag.whenExists === 'skip') {
-    core.info(`Tag '${tag.name}' exists, skipping.`)
-    return 'skipped'
-  }
-
-  if (tag.whenExists === 'fail') {
-    // This should not happen as we fail early in resolveDesiredTags
-    core.setFailed(`Tag '${tag.name}' already exists.`)
-    return 'failed'
-  }
-
-  // whenExists === 'update' - check if update is needed
-  if (tagMatchesTarget(tag)) {
-    core.info(
-      `Tag '${tag.name}' already exists with desired commit SHA ${tag.sha}` +
-        (tag.existing.isAnnotated ? ' (annotated).' : '.')
-    )
-    return 'skipped'
-  }
-
-  return await updateExistingTag(ctx, tag)
-}
-
-/**
  * Update an existing tag to point to a new commit and/or annotation.
  */
 async function updateExistingTag(
-  ctx: TagOperationContext,
+  ctx: Context,
   tag: DesiredTag
 ): Promise<TagResult> {
-  if (!tag.existing) {
-    throw new Error(`Cannot update non-existent tag '${tag.name}'`)
-  }
-
   const reasons = getUpdateReasons(tag)
-  const commitMatches = tag.existing.commitSHA === tag.sha
+  const commitMatches = tag.existing?.commitSHA === tag.sha
 
   if (commitMatches) {
     core.info(
@@ -270,7 +249,7 @@ async function updateExistingTag(
   } else {
     core.info(
       `Tag '${tag.name}' exists` +
-        `${tag.existing.isAnnotated ? ' (annotated)' : ''}` +
+        `${tag.existing?.isAnnotated === true ? ' (annotated)' : ''}` +
         `, updating to ${reasons.join(', ')}.`
     )
   }
@@ -291,10 +270,7 @@ async function updateExistingTag(
 /**
  * Create a tag (doesn't exist yet).
  */
-async function createTag(
-  ctx: TagOperationContext,
-  tag: DesiredTag
-): Promise<TagResult> {
+async function createTag(ctx: Context, tag: DesiredTag): Promise<TagResult> {
   core.info(
     `Tag '${tag.name}' does not exist, creating with commit SHA ${tag.sha}.`
   )
@@ -319,7 +295,7 @@ async function createTag(
  * @returns The SHA to use (tag object SHA if annotated, commit SHA otherwise)
  */
 async function resolveTargetSHA(
-  ctx: TagOperationContext,
+  ctx: Context,
   tag: DesiredTag
 ): Promise<string> {
   if (!tag.annotation) {
@@ -348,15 +324,15 @@ function compareTagState(tag: DesiredTag): {
   commitMatches: boolean
   annotationMatches: boolean
 } {
-  if (!tag.existing) {
-    return { commitMatches: false, annotationMatches: false }
-  }
+  const isAnnotated = tag.existing?.isAnnotated === true
 
-  const commitMatches = tag.existing.commitSHA === tag.sha
+  const commitMatches = tag.existing?.commitSHA === tag.sha
   const annotationMatches =
-    tag.existing.isAnnotated && tag.annotation
-      ? tag.existing.annotation === tag.annotation
-      : !tag.existing.isAnnotated && !tag.annotation
+    (isAnnotated &&
+      !!tag.annotation &&
+      tag.existing?.annotation === tag.annotation) ||
+    (!isAnnotated && !tag.annotation) ||
+    false
 
   return { commitMatches, annotationMatches }
 }
@@ -379,17 +355,15 @@ function tagMatchesTarget(tag: DesiredTag): boolean {
  * @returns Array of reason strings
  */
 function getUpdateReasons(tag: DesiredTag): string[] {
-  if (!tag.existing) return []
-
   const { commitMatches, annotationMatches } = compareTagState(tag)
   const reasons: string[] = []
 
   if (!commitMatches) {
-    reasons.push(`commit SHA ${tag.sha} (was ${tag.existing.commitSHA})`)
+    reasons.push(`commit SHA ${tag.sha} (was ${tag.existing?.commitSHA})`)
   }
 
   if (!annotationMatches && tag.annotation) {
-    if (tag.existing.isAnnotated) {
+    if (tag.existing?.isAnnotated === true) {
       reasons.push('annotation message changed')
     } else {
       reasons.push('adding annotation')
@@ -397,7 +371,7 @@ function getUpdateReasons(tag: DesiredTag): string[] {
   } else if (
     !annotationMatches &&
     !tag.annotation &&
-    tag.existing.isAnnotated
+    tag.existing?.isAnnotated === true
   ) {
     reasons.push('removing annotation')
   }
