@@ -37,6 +37,6 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
         with:
           files: |
-            dist/**/*
+            dist/
           commit-message: |-
             chore: rebuild dist
