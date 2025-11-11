@@ -25,9 +25,6 @@ jobs:
         run: echo "user-id=$(gh api "/users/${{ steps.app-token.outputs.app-slug }}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-      - run: |
-          git config --global user.name '${{ steps.app-token.outputs.app-slug }}[bot]'
-          git config --global user.email '${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com'
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           token: ${{ steps.app-token.outputs.token }}
@@ -40,11 +37,54 @@ jobs:
       - name: Rebuild dist
         run: npm run bundle
       - name: Commit and push if changed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          APP_USER_ID: ${{ steps.get-user-id.outputs.user-id }}
+          APP_NAME: ${{ steps.app-token.outputs.app-slug }}[bot]
+          APP_EMAIL: ${{ steps.get-user-id.outputs.user-id }}+${{ steps.app-token.outputs.app-slug }}[bot]@users.noreply.github.com
         run: |
           if [ "$(git diff --ignore-space-at-eol --text dist/ | wc -l)" -gt "0" ]; then
+            # Stage changes
             git add dist/
-            git commit -m "chore: rebuild dist"
-            git push
+
+            # Parent commit SHA (current HEAD of PR branch)
+            PARENT_SHA="$GITHUB_SHA"
+
+            # Create temporary commit on temp branch to generate tree object
+            TEMP_BRANCH="temp-rebuild-${GITHUB_SHA}"
+            git checkout -b "$TEMP_BRANCH"
+            git config user.name "$APP_NAME"
+            git config user.email "$APP_EMAIL"
+            git commit -m "temp"
+
+            # Extract tree SHA from the commit
+            TREE_SHA=$(git rev-parse HEAD^{tree})
+
+            # Push temp branch (uploads objects to GitHub) then delete it
+            git push origin "$TEMP_BRANCH"
+            git push origin --delete "$TEMP_BRANCH"
+
+            # Create signed commit via GitHub API using the tree
+            NEW_COMMIT_SHA=$(gh api \
+              --method POST \
+              "/repos/${GITHUB_REPOSITORY}/git/commits" \
+              -f message='chore: rebuild dist' \
+              -f tree="$TREE_SHA" \
+              -f parent="$PARENT_SHA" \
+              -f author[name]="$APP_NAME" \
+              -f author[email]="$APP_EMAIL" \
+              -f committer[name]="$APP_NAME" \
+              -f committer[email]="$APP_EMAIL" \
+              --jq '.sha')
+
+            # Update branch reference to point to new commit
+            gh api \
+              --method PATCH \
+              "/repos/${GITHUB_REPOSITORY}/git/refs/heads/${GITHUB_HEAD_REF}" \
+              -f sha="$NEW_COMMIT_SHA"
+
+            echo "Created verified commit: $NEW_COMMIT_SHA"
           else
             echo "No changes to dist/"
           fi
