@@ -21,7 +21,7 @@ up-to-date. Always run `npm run package` (or `npm run bundle`) after modifying
 
 ## Development Commands
 
-Package manager: npm (Node 24 via mise.toml)
+Package manager: npm
 
 ```bash
 # Install dependencies
@@ -59,11 +59,12 @@ npm run package:watch # Auto-rebuild on changes
   function that coordinates input parsing, tag processing, and output setting
 - **[src/inputs.ts](src/inputs.ts)**: Input parsing and validation. Exports
   `getInputs()` that reads action inputs and `Inputs` interface
-- **[src/tags.ts](src/tags.ts)**: Tag parsing and processing logic:
-  - `parseTagsInput()`: Parses CSV/newline input, handles `tag:ref` syntax,
-    pre-resolves all unique refs to SHAs in parallel (optimization)
-  - `processTag()`: Creates/updates individual tags based on `when_exists` mode
-  - `resolveRefToSha()`: Converts git refs to commit SHAs (private helper)
+- **[src/tags.ts](src/tags.ts)**: Tag planning and execution logic:
+  - `planTagOperations()`: Parses tags, pre-resolves refs to SHAs in parallel,
+    plans create/update/skip operations
+  - `executeTagOperation()`: Executes a single planned operation (create,
+    update, or skip with logging)
+  - Private helpers for tag creation, updates, and annotation handling
 - **[action.yml](action.yml)**: GitHub Action metadata (inputs/outputs)
 - **[tests/fixtures/](tests/fixtures)**: Mock implementations of @actions/core,
   @actions/github, and csv-parse for testing
@@ -76,14 +77,16 @@ per-tag ref overrides: `v1:main` tags `v1` to `main` branch.
 ### Tag Update Logic
 
 1. Parse and validate inputs ([inputs.ts](src/inputs.ts))
-2. Parse tags and extract per-tag refs ([tags.ts](src/tags.ts):parseTagsInput)
-3. Pre-resolve all unique refs to SHAs in parallel (optimization)
-4. For each tag ([tags.ts](src/tags.ts):processTag):
-   - If exists + update mode: Update if SHA differs
-   - If exists + skip mode: Skip silently
-   - If exists + fail mode: Fail action
-   - If doesn't exist (404): Create it
-5. Set outputs with created/updated tag lists ([main.ts](src/main.ts))
+2. Plan all tag operations ([tags.ts](src/tags.ts):planTagOperations):
+   - Parse `tag:ref` syntax and extract per-tag refs
+   - Pre-resolve all unique refs to SHAs in parallel (optimization)
+   - For each tag, check existence and determine operation:
+     - If exists + fail mode: Fail action immediately
+     - If exists + skip mode: Plan skip
+     - If exists + update mode: Plan update if SHA or annotation differs
+     - If doesn't exist (404): Plan create
+3. Execute each planned operation ([tags.ts](src/tags.ts):executeTagOperation)
+4. Set outputs with created/updated/skipped tag lists ([main.ts](src/main.ts))
 
 ### Testing Patterns
 
@@ -119,9 +122,10 @@ Mock fixtures live in `tests/fixtures/` (e.g., `core.ts` mocks @actions/core).
 `.github/workflows/ci.yml` runs:
 
 1. **check-dist**: Verify bundled dist/ matches source
-2. **lint**: ESLint with GitHub formatter
-3. **release-please**: Semantic versioning releases
-4. **release-tags**: Self-referential tag updates after release
+2. **lint**: ESLint check
+3. **test**: Run Jest test suite
+4. **release-please**: Semantic versioning releases
+5. **release-tags**: Self-referential tag updates after release
 
 ## Release Process
 
@@ -187,6 +191,7 @@ chore(deps): bump @actions/core to v1.10.0
 - `tags`: CSV/newline list, supports `tag:ref` syntax
 - `ref`: SHA/ref to tag (default: current commit)
 - `when_exists`: update|skip|fail (default: update)
+- `annotation`: Optional message for annotated tags (default: lightweight)
 - `github_token`: Auth token (default: github.token)
 
 **Outputs:**
@@ -194,6 +199,7 @@ chore(deps): bump @actions/core to v1.10.0
 - `tags`: All created/updated tags
 - `created`: Newly created tags
 - `updated`: Updated tags
+- `skipped`: Skipped tags (already matching or when_exists=skip)
 
 ## Code Style and Guidelines
 
