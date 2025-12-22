@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.2.1](https://github.com/jimeh/update-tags-action/compare/v2.2.0...v2.2.1) (2025-12-22)
+
+
+### Documentation
+
+* **AGENTS.md:** update to align with current state of project ([#71](https://github.com/jimeh/update-tags-action/issues/71)) ([a25f37f](https://github.com/jimeh/update-tags-action/commit/a25f37f9e6300ff3fcdf28424cdec9d99944522f))
+
 ## [2.2.0](https://github.com/jimeh/update-tags-action/compare/v2.1.1...v2.2.0) (2025-10-29)
 
 
