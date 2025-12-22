@@ -85,8 +85,8 @@ jobs:
       - uses: jimeh/release-please-manifest-action@84f33fd2828210488c36f3e0a7e3209252d2ae7d # v3.0.0
         id: release-please
         with:
-          app-id: ${{ secrets.RELEASE_BOT_APP_ID }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
 
   release-tags:
     runs-on: ubuntu-latest
