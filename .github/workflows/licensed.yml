@@ -20,7 +20,18 @@ jobs:
   check-licenses:
     runs-on: ubuntu-latest
     steps:
+      # Checkout code using app token.
+      - name: Generate app token
+        id: app-token
+        uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
+        with:
+          app-id: ${{ secrets.BOT_APP_ID }}
+          private-key: ${{ secrets.BOT_PRIVATE_KEY }}
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
+      # Setup Node and Ruby runtimes.
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .node-version
@@ -36,17 +47,16 @@ jobs:
         name: Update Licenses
         id: update-licenses
         run: bin/licensed cache
-
-      # Then, commit the updated licenses to the repository.
       - if: ${{ github.event_name == 'workflow_dispatch' }}
-        name: Commit Licenses
-        id: commit-licenses
-        run: |
-          git config --local user.email "licensed-ci@users.noreply.github.com"
-          git config --local user.name "licensed-ci"
-          git add .
-          git commit -m "Auto-update license files"
-          git push
+        name: Commit and push if changed
+        uses: ryancyq/github-signed-commit@e9f3b28c80da7be66d24b8f501a5abe82a6b855f # v1.2.0
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          files: |
+            .licenses/
+          commit-message: |-
+            chore(licensed): update license files
 
       # Last, check the status of the cached licenses.
       - name: Check Licenses

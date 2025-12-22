@@ -15,6 +15,7 @@ jobs:
     if: |-
       ${{ github.actor == 'dependabot[bot]' && github.event.sender.login == 'dependabot[bot]' }}
     steps:
+      # Checkout code using app token.
       - name: Generate app token
         id: app-token
         uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
@@ -24,10 +25,18 @@ jobs:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           token: ${{ steps.app-token.outputs.token }}
+
+      # Setup Node and Ruby runtimes.
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .node-version
           cache: npm
+      - uses: ruby/setup-ruby@ac793fdd38cc468a4dd57246fa9d0e868aba9085 # v1.270.0
+        with:
+          ruby-version: ruby
+          bundler-cache: true
+
+      # Rebuild and push dist if changed.
       - run: npm ci
       - name: Rebuild dist
         run: npm run bundle
@@ -40,3 +49,17 @@ jobs:
             dist/
           commit-message: |-
             chore: rebuild dist
+
+      # Update and push .licenses if changed.
+      - name: Update Licenses
+        id: update-licenses
+        run: bin/licensed cache
+      - name: Commit and push if changed
+        uses: ryancyq/github-signed-commit@e9f3b28c80da7be66d24b8f501a5abe82a6b855f # v1.2.0
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        with:
+          files: |
+            .licenses/
+          commit-message: |-
+            chore(licensed): update license files
