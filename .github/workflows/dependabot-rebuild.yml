@@ -10,12 +10,10 @@ permissions:
   pull-requests: read
 
 jobs:
-  rebuild-dist:
+  rebuild:
     runs-on: ubuntu-latest
-    if: |-
-      ${{ github.actor == 'dependabot[bot]' && github.event.sender.login == 'dependabot[bot]' }}
+    if: ${{ github.actor == 'dependabot[bot]' && github.event.sender.login == 'dependabot[bot]' }}
     steps:
-      # Checkout code using app token.
       - name: Generate app token
         id: app-token
         uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # v2.2.1
@@ -26,17 +24,11 @@ jobs:
         with:
           token: ${{ steps.app-token.outputs.token }}
 
-      # Setup Node and Ruby runtimes.
+      # Update and push dist if changed.
       - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
         with:
           node-version-file: .node-version
           cache: npm
-      - uses: ruby/setup-ruby@ac793fdd38cc468a4dd57246fa9d0e868aba9085 # v1.270.0
-        with:
-          ruby-version: ruby
-          bundler-cache: true
-
-      # Rebuild and push dist if changed.
       - run: npm ci
       - name: Rebuild dist
         run: npm run bundle
@@ -51,6 +43,10 @@ jobs:
             chore: rebuild dist
 
       # Update and push .licenses if changed.
+      - uses: ruby/setup-ruby@ac793fdd38cc468a4dd57246fa9d0e868aba9085 # v1.270.0
+        with:
+          ruby-version: ruby
+          bundler-cache: true
       - name: Update Licenses
         id: update-licenses
         run: bin/licensed cache
