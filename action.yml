@@ -9,7 +9,20 @@ branding:
 inputs:
   tags:
     description: "List/CSV of tags to create/update."
-    required: true
+    required: false
+  derive_from:
+    description: >-
+      Semver version string to derive tags from (e.g., 'v1.2.3'). When provided,
+      generates tags using `derive_from_template` input. Default template will
+      produce major and minor tags. (e.g., 'v1', 'v1.2')
+    required: false
+  derive_from_template:
+    description: >-
+      Handlebars template for deriving tags from the `derive_from` input.
+      CSV/newline-delimited list with placeholders: {{prefix}}, {{major}},
+      {{minor}}, {{patch}}, {{prerelease}}, {{build}}, {{version}}.
+    required: false
+    default: "{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}"
   ref:
     description: "The SHA or ref to tag. Defaults to SHA of current commit."
     required: false

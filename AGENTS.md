@@ -20,7 +20,8 @@ up-to-date. Always run `npm run package` (or `npm run bundle`) after modifying
 `src/` files.
 
 **License Compliance**: After modifying NPM dependencies, check license status
-and re-cache if needed via `npm run licensed:status` and `npm run licensed:cache`.
+and re-cache if needed via `npm run licensed:status` and
+`npm run licensed:cache`.
 
 ## Development Commands
 
@@ -38,7 +39,7 @@ npm run package       # Build src/index.ts -> dist/index.js via Rollup
 npm run bundle        # Alias: format + package
 
 # Run a single test file
-NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 npx jest tests/main.test.ts
+NODE_OPTIONS=--experimental-vm-modules NODE_NO_WARNINGS=1 jest tests/main.test.ts
 
 # CI variants (suppress warnings)
 npm run ci-test       # Run tests in CI mode
@@ -66,6 +67,11 @@ npm run licensed:cache   # Re-cache licenses if needed
   function that coordinates input parsing, tag processing, and output setting
 - **[src/inputs.ts](src/inputs.ts)**: Input parsing and validation. Exports
   `getInputs()` that reads action inputs and `Inputs` interface
+- **[src/derive.ts](src/derive.ts)**: Semver parsing and tag derivation:
+  - `parseSemver()`: Parses version strings into components (prefix, major,
+    minor, patch, prerelease, build)
+  - `renderTemplate()`: Renders Handlebars templates with semver context
+  - `deriveTags()`: Derives tags from a version string using a template
 - **[src/tags.ts](src/tags.ts)**: Tag planning and execution logic:
   - `planTagOperations()`: Parses tags, pre-resolves refs to SHAs in parallel,
     plans create/update/skip operations
@@ -80,6 +86,20 @@ npm run licensed:cache   # Re-cache licenses if needed
 
 Uses `csv-parse/sync` to handle both CSV and newline-delimited formats. Supports
 per-tag ref overrides: `v1:main` tags `v1` to `main` branch.
+
+### Tag Derivation
+
+The `derive_from` input allows automatic generation of tags from a semver
+version string. Uses Handlebars templates with these placeholders:
+
+- `{{prefix}}`: "v" or "V" if input had prefix, empty otherwise
+- `{{major}}`, `{{minor}}`, `{{patch}}`: Version numbers
+- `{{prerelease}}`, `{{build}}`: Optional semver components
+- `{{version}}`: Full version without prefix
+
+Default template `{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}` generates
+major and minor tags (e.g., `v1.2.3` → `v1`, `v1.2`). Supports Handlebars
+conditionals like `{{#if prerelease}}...{{/if}}`.
 
 ### Tag Update Logic
 
@@ -196,10 +216,16 @@ chore(deps): bump @actions/core to v1.10.0
 **Inputs:**
 
 - `tags`: CSV/newline list, supports `tag:ref` syntax
+- `derive_from`: Semver version string to derive tags from (e.g., "v1.2.3")
+- `derive_from_template`: Handlebars template for tag derivation (default:
+  `{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}`)
 - `ref`: SHA/ref to tag (default: current commit)
 - `when_exists`: update|skip|fail (default: update)
 - `annotation`: Optional message for annotated tags (default: lightweight)
+- `dry_run`: Log planned operations without executing (default: false)
 - `github_token`: Auth token (default: github.token)
+
+Either `tags` or `derive_from` (or both) must be provided.
 
 **Outputs:**
 
