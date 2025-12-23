@@ -10,6 +10,7 @@ export interface Inputs {
   defaultRef: string
   whenExists: WhenExistsMode
   annotation: string
+  dryRun: boolean
   owner: string
   repo: string
   token: string
@@ -43,6 +44,7 @@ export function getInputs(): Inputs {
   const whenExistsInput = core.getInput('when_exists') || 'update'
   const whenExists = validateWhenExists(whenExistsInput)
   const annotation: string = core.getInput('annotation')
+  const dryRun: boolean = core.getBooleanInput('dry_run')
   const token: string = core.getInput('github_token', {
     required: true
   })
@@ -63,6 +65,7 @@ export function getInputs(): Inputs {
     defaultRef,
     whenExists,
     annotation,
+    dryRun,
     owner,
     repo,
     token

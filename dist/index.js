@@ -29483,7 +29483,7 @@ var noop = () => {
 };
 var consoleWarn = console.warn.bind(console);
 var consoleError = console.error.bind(console);
-function createLogger(logger = {}) {
+function createLogger$1(logger = {}) {
   if (typeof logger.debug !== "function") {
     logger.debug = noop;
   }
@@ -29571,7 +29571,7 @@ var Octokit = class {
     }
     this.request = request.defaults(requestDefaults);
     this.graphql = withCustomRequest(this.request).defaults(requestDefaults);
-    this.log = createLogger(options.log);
+    this.log = createLogger$1(options.log);
     this.hook = hook;
     if (!options.authStrategy) {
       if (!options.auth) {
@@ -34055,6 +34055,7 @@ function getInputs() {
     const whenExistsInput = coreExports.getInput('when_exists') || 'update';
     const whenExists = validateWhenExists(whenExistsInput);
     const annotation = coreExports.getInput('annotation');
+    const dryRun = coreExports.getBooleanInput('dry_run');
     const token = coreExports.getInput('github_token', {
         required: true
     });
@@ -34070,9 +34071,40 @@ function getInputs() {
         defaultRef,
         whenExists,
         annotation,
+        dryRun,
         owner,
         repo,
         token
+    };
+}
+
+/**
+ * Create a logger that optionally prefixes all messages.
+ *
+ * @param prefix - Optional prefix to prepend to all log messages
+ * @returns Logger instance with prefixed messages
+ */
+function createLogger(prefix = '') {
+    const prefixMessage = (msg) => {
+        if (!prefix) {
+            return msg;
+        }
+        if (typeof msg === 'string') {
+            return `${prefix}${msg}`;
+        }
+        // Wrap Error with prefixed message, preserving the original as cause
+        const wrapped = new Error(`${prefix}${msg.message}`, { cause: msg });
+        if (msg.stack) {
+            wrapped.stack = msg.stack;
+        }
+        return wrapped;
+    };
+    return {
+        debug: (message) => coreExports.debug(`${prefix}${message}`),
+        info: (message) => coreExports.info(`${prefix}${message}`),
+        notice: (message, properties) => coreExports.notice(prefixMessage(message), properties),
+        warning: (message, properties) => coreExports.warning(prefixMessage(message), properties),
+        error: (message, properties) => coreExports.error(prefixMessage(message), properties)
     };
 }
 
@@ -34198,21 +34230,19 @@ async function planTagOperations(inputs, octokit) {
  *
  * @param operation - The planned tag operation to execute
  * @param octokit - GitHub API client
+ * @param options - Execution options (e.g., dryRun)
  */
-async function executeTagOperation(operation, octokit) {
+async function executeTagOperation(operation, octokit, options = {}) {
+    const dryRun = options.dryRun ?? false;
     const ctx = {
         owner: operation.owner,
         repo: operation.repo,
-        octokit
+        octokit,
+        dryRun,
+        log: createLogger(dryRun ? '[dry-run] ' : '')
     };
     if (operation.operation === 'skip') {
-        if (operation.reason === 'when_exists_skip') {
-            coreExports.info(`Tag '${operation.name}' exists, skipping.`);
-        }
-        else {
-            coreExports.info(`Tag '${operation.name}' already exists with desired commit SHA ${operation.sha}` +
-                (operation.existingIsAnnotated ? ' (annotated).' : '.'));
-        }
+        logSkipOperation(ctx, operation);
         return;
     }
     if (operation.operation === 'create') {
@@ -34226,9 +34256,22 @@ async function executeTagOperation(operation, octokit) {
     throw new Error(`Unknown operation type: ${operation.operation}`);
 }
 /**
+ * Log a skip operation.
+ */
+function logSkipOperation(ctx, operation) {
+    if (operation.reason === 'when_exists_skip') {
+        ctx.log.info(`Tag '${operation.name}' exists, skipping.`);
+    }
+    else {
+        ctx.log.info(`Tag '${operation.name}' already exists with desired ` +
+            `commit SHA ${operation.sha}` +
+            (operation.existingIsAnnotated ? ' (annotated).' : '.'));
+    }
+}
+/**
  * Fetch information about an existing tag, dereferencing if annotated.
  *
- * @param ctx - Operation context
+ * @param ctx - Read-only operation context
  * @param tagName - The name of the tag to fetch
  * @returns Information about the existing tag
  */
@@ -34261,7 +34304,7 @@ async function fetchTagInfo(ctx, tagName) {
 /**
  * Resolve a ref to a SHA.
  *
- * @param ctx - Operation context
+ * @param ctx - Read-only operation context
  * @param ref - The ref to resolve
  * @returns The SHA
  */
@@ -34283,13 +34326,17 @@ async function resolveRefToSha(ctx, ref) {
  */
 async function updateExistingTag(ctx, operation) {
     const commitMatches = operation.existingSHA === operation.sha;
+    const verb = ctx.dryRun ? 'Would update' : 'Updating';
     if (commitMatches) {
-        coreExports.info(`Tag '${operation.name}' exists with same commit but ${operation.reasons.join(', ')}.`);
+        ctx.log.info(`${verb} tag '${operation.name}', ${operation.reasons.join(', ')}.`);
     }
     else {
-        coreExports.info(`Tag '${operation.name}' exists` +
-            `${operation.existingIsAnnotated ? ' (annotated)' : ''}` +
-            `, updating to ${operation.reasons.join(', ')}.`);
+        ctx.log.info(`${verb} tag '${operation.name}'` +
+            `${operation.existingIsAnnotated ? ' (annotated)' : ''} ` +
+            `to ${operation.reasons.join(', ')}.`);
+    }
+    if (ctx.dryRun) {
+        return;
     }
     const targetSha = await resolveTargetSHA(ctx, operation.name, operation.sha, operation.annotation);
     await ctx.octokit.rest.git.updateRef({
@@ -34304,7 +34351,12 @@ async function updateExistingTag(ctx, operation) {
  * Create a tag (doesn't exist yet).
  */
 async function createTag(ctx, operation) {
-    coreExports.info(`Tag '${operation.name}' does not exist, creating with commit SHA ${operation.sha}.`);
+    const verb = ctx.dryRun ? 'Would create' : 'Creating';
+    ctx.log.info(`${verb} tag '${operation.name}' at commit SHA ${operation.sha}` +
+        (operation.annotation ? ' (annotated).' : '.'));
+    if (ctx.dryRun) {
+        return;
+    }
     const targetSha = await resolveTargetSHA(ctx, operation.name, operation.sha, operation.annotation);
     await ctx.octokit.rest.git.createRef({
         owner: ctx.owner,
@@ -34316,7 +34368,7 @@ async function createTag(ctx, operation) {
 /**
  * Resolve the target SHA for a tag (creates annotated tag object if needed).
  *
- * @param ctx - Operation context
+ * @param ctx - Read-only operation context
  * @param tagName - The tag name
  * @param commitSha - The commit SHA
  * @param annotation - The annotation message (if any)
@@ -34392,20 +34444,26 @@ async function run() {
         const inputs = getInputs();
         const octokit = githubExports.getOctokit(inputs.token);
         const operations = await planTagOperations(inputs, octokit);
+        if (inputs.dryRun) {
+            coreExports.info('[dry-run] Dry-run mode enabled, no changes will be made.');
+        }
         const created = [];
         const updated = [];
         const skipped = [];
         // Execute all planned operations.
         for (const operation of operations) {
-            await executeTagOperation(operation, octokit);
-            if (operation.operation === 'create') {
-                created.push(operation.name);
-            }
-            else if (operation.operation === 'update') {
-                updated.push(operation.name);
-            }
-            else if (operation.operation === 'skip') {
-                skipped.push(operation.name);
+            await executeTagOperation(operation, octokit, { dryRun: inputs.dryRun });
+            // Only track actual changes when not in dry-run mode
+            if (!inputs.dryRun) {
+                if (operation.operation === 'create') {
+                    created.push(operation.name);
+                }
+                else if (operation.operation === 'update') {
+                    updated.push(operation.name);
+                }
+                else if (operation.operation === 'skip') {
+                    skipped.push(operation.name);
+                }
             }
         }
         coreExports.setOutput('created', created);

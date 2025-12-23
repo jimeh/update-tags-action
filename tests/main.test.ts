@@ -16,9 +16,14 @@ jest.unstable_mockModule('csv-parse/sync', () => csvParse)
 const { run } = await import('../src/main.js')
 
 // Helper functions for cleaner test setup
-const setupInputs = (inputs: Record<string, string>): void => {
+const setupInputs = (inputs: Record<string, string | boolean>): void => {
   core.getInput.mockImplementation((name: string) => {
-    return inputs[name] || ''
+    const value = inputs[name]
+    return typeof value === 'string' ? value : ''
+  })
+  core.getBooleanInput.mockImplementation((name: string) => {
+    const value = inputs[name]
+    return typeof value === 'boolean' ? value : false
   })
 }
 
@@ -123,7 +128,7 @@ describe('run', () => {
     })
 
     expect(core.info).toHaveBeenCalledWith(
-      "Tag 'v1' does not exist, creating with commit SHA sha-abc123."
+      "Creating tag 'v1' at commit SHA sha-abc123."
     )
     expect(getOutputs()).toEqual({
       created: ['v1', 'v1.0'],
@@ -155,7 +160,7 @@ describe('run', () => {
     })
 
     expect(core.info).toHaveBeenCalledWith(
-      "Tag 'v1' exists, updating to commit SHA sha-def456 (was sha-old123)."
+      "Updating tag 'v1' to commit SHA sha-def456 (was sha-old123)."
     )
     expect(getOutputs()).toEqual({
       created: [],
@@ -1217,6 +1222,227 @@ describe('run', () => {
       updated: ['v1'],
       skipped: [],
       tags: ['v1']
+    })
+  })
+
+  describe('dry-run mode', () => {
+    it('logs planned creates without executing them', async () => {
+      setupInputs({
+        tags: 'v1,v1.0',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        dry_run: true
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      // Should NOT call createRef in dry-run mode
+      expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
+
+      // Should log dry-run messages
+      expect(core.info).toHaveBeenCalledWith(
+        '[dry-run] Dry-run mode enabled, no changes will be made.'
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Would create tag 'v1' at commit SHA sha-abc123."
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Would create tag 'v1.0' at commit SHA sha-abc123."
+      )
+
+      // Outputs should be empty in dry-run mode
+      expect(getOutputs()).toEqual({
+        created: [],
+        updated: [],
+        skipped: [],
+        tags: []
+      })
+    })
+
+    it('logs planned updates without executing them', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'def456',
+        github_token: 'test-token',
+        when_exists: 'update',
+        dry_run: true
+      })
+      setupCommitResolver('sha-def456')
+      setupTagExistsForAll('sha-old123')
+
+      await run()
+
+      // Should NOT call updateRef in dry-run mode
+      expect(github.mockOctokit.rest.git.updateRef).not.toHaveBeenCalled()
+
+      // Should log dry-run messages
+      expect(core.info).toHaveBeenCalledWith(
+        '[dry-run] Dry-run mode enabled, no changes will be made.'
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Would update tag 'v1' " +
+          'to commit SHA sha-def456 (was sha-old123).'
+      )
+
+      // Outputs should be empty in dry-run mode
+      expect(getOutputs()).toEqual({
+        created: [],
+        updated: [],
+        skipped: [],
+        tags: []
+      })
+    })
+
+    it('logs skipped tags with dry-run prefix', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        dry_run: true
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagExistsForAll('sha-abc123')
+
+      await run()
+
+      expect(core.info).toHaveBeenCalledWith(
+        '[dry-run] Dry-run mode enabled, no changes will be made.'
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Tag 'v1' already exists with desired commit SHA sha-abc123."
+      )
+
+      expect(getOutputs()).toEqual({
+        created: [],
+        updated: [],
+        skipped: [],
+        tags: []
+      })
+    })
+
+    it('handles mixed operations in dry-run mode', async () => {
+      setupInputs({
+        tags: 'v1,v2,v3',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        dry_run: true
+      })
+      setupCommitResolver('sha-abc123')
+
+      // v1 exists with different SHA, v2 matches, v3 doesn't exist
+      github.mockOctokit.rest.git.getRef.mockImplementation(
+        async (args: unknown) => {
+          const { ref } = args as { ref: string }
+          if (ref === 'tags/v1') {
+            return {
+              data: {
+                ref: 'refs/tags/v1',
+                object: { sha: 'sha-old', type: 'commit' }
+              }
+            }
+          }
+          if (ref === 'tags/v2') {
+            return {
+              data: {
+                ref: 'refs/tags/v2',
+                object: { sha: 'sha-abc123', type: 'commit' }
+              }
+            }
+          }
+          throw { status: 404 }
+        }
+      )
+
+      await run()
+
+      // No actual operations should happen
+      expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
+      expect(github.mockOctokit.rest.git.updateRef).not.toHaveBeenCalled()
+
+      // Should log all planned operations
+      expect(core.info).toHaveBeenCalledWith(
+        '[dry-run] Dry-run mode enabled, no changes will be made.'
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Would update tag 'v1' to commit SHA sha-abc123 (was sha-old)."
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Tag 'v2' already exists with desired commit SHA sha-abc123."
+      )
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Would create tag 'v3' at commit SHA sha-abc123."
+      )
+
+      expect(getOutputs()).toEqual({
+        created: [],
+        updated: [],
+        skipped: [],
+        tags: []
+      })
+    })
+
+    it('logs annotated tag creation in dry-run mode', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Release v1',
+        dry_run: true
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createTag).not.toHaveBeenCalled()
+      expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
+
+      expect(core.info).toHaveBeenCalledWith(
+        "[dry-run] Would create tag 'v1' at commit SHA sha-abc123 (annotated)."
+      )
+
+      expect(getOutputs()).toEqual({
+        created: [],
+        updated: [],
+        skipped: [],
+        tags: []
+      })
+    })
+
+    it('executes normally when dry_run is false', async () => {
+      setupInputs({
+        tags: 'v1',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update',
+        dry_run: false
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      // Should actually create the tag
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(1)
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1',
+        sha: 'sha-abc123'
+      })
+
+      expect(getOutputs()).toEqual({
+        created: ['v1'],
+        updated: [],
+        skipped: [],
+        tags: ['v1']
+      })
     })
   })
 })

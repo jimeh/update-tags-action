@@ -110,6 +110,7 @@ jobs:
 | `ref`          | <p>The SHA or ref to tag. Defaults to SHA of current commit.</p>                                                      | `false`  | `${{ github.sha }}`   |
 | `when_exists`  | <p>What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.</p>                              | `false`  | `update`              |
 | `annotation`   | <p>Optional annotation message for tags. If provided, creates annotated tags. If empty, creates lightweight tags.</p> | `false`  | `""`                  |
+| `dry_run`      | <p>If true, logs planned operations without executing them.</p>                                                       | `false`  | `false`               |
 | `github_token` | <p>The GitHub token to use for authentication.</p>                                                                    | `false`  | `${{ github.token }}` |
 
 <!-- action-docs-inputs source="action.yml" -->
