@@ -12,7 +12,8 @@ permissions:
 jobs:
   rebuild:
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'dependabot[bot]' && github.event.sender.login == 'dependabot[bot]' }}
+    if: |-
+      ${{ github.actor == 'dependabot[bot]' && github.event.sender.login == 'dependabot[bot]' }}
     steps:
       - name: Generate app token
         id: app-token
