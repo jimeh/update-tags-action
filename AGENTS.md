@@ -19,6 +19,9 @@ tags.
 up-to-date. Always run `npm run package` (or `npm run bundle`) after modifying
 `src/` files.
 
+**License Compliance**: After modifying NPM dependencies, check license status
+and re-cache if needed via `npm run licensed:status` and `npm run licensed:cache`.
+
 ## Development Commands
 
 Package manager: npm
@@ -48,6 +51,10 @@ npm run update-readme
 
 # Watch mode
 npm run package:watch # Auto-rebuild on changes
+
+# License compliance (after modifying dependencies)
+npm run licensed:status  # Check license status of dependencies
+npm run licensed:cache   # Re-cache licenses if needed
 ```
 
 ## Code Architecture
