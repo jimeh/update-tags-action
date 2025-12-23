@@ -14,20 +14,27 @@ export async function run(): Promise<void> {
     const octokit = github.getOctokit(inputs.token)
     const operations = await planTagOperations(inputs, octokit)
 
+    if (inputs.dryRun) {
+      core.info('[dry-run] Dry-run mode enabled, no changes will be made.')
+    }
+
     const created: string[] = []
     const updated: string[] = []
     const skipped: string[] = []
 
     // Execute all planned operations.
     for (const operation of operations) {
-      await executeTagOperation(operation, octokit)
+      await executeTagOperation(operation, octokit, { dryRun: inputs.dryRun })
 
-      if (operation.operation === 'create') {
-        created.push(operation.name)
-      } else if (operation.operation === 'update') {
-        updated.push(operation.name)
-      } else if (operation.operation === 'skip') {
-        skipped.push(operation.name)
+      // Only track actual changes when not in dry-run mode
+      if (!inputs.dryRun) {
+        if (operation.operation === 'create') {
+          created.push(operation.name)
+        } else if (operation.operation === 'update') {
+          updated.push(operation.name)
+        } else if (operation.operation === 'skip') {
+          skipped.push(operation.name)
+        }
       }
     }
 

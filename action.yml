@@ -26,6 +26,11 @@ inputs:
       If empty, creates lightweight tags.
     required: false
     default: ""
+  dry_run:
+    description: >-
+      If true, logs planned operations without executing them.
+    required: false
+    default: "false"
   github_token:
     description: "The GitHub token to use for authentication."
     required: false
