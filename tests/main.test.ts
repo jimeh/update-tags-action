@@ -1445,4 +1445,226 @@ describe('run', () => {
       })
     })
   })
+
+  describe('derive_from input', () => {
+    it('derives tags from semver using default template', async () => {
+      setupInputs({
+        derive_from: 'v1.2.3',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1',
+        sha: 'sha-abc123'
+      })
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1.2',
+        sha: 'sha-abc123'
+      })
+
+      expect(getOutputs()).toEqual({
+        created: ['v1', 'v1.2'],
+        updated: [],
+        skipped: [],
+        tags: ['v1', 'v1.2']
+      })
+    })
+
+    it('derives tags using custom template', async () => {
+      setupInputs({
+        derive_from: 'v2.5.0',
+        derive_from_template: '{{prefix}}{{major}}',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(1)
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v2',
+        sha: 'sha-abc123'
+      })
+
+      expect(getOutputs()).toEqual({
+        created: ['v2'],
+        updated: [],
+        skipped: [],
+        tags: ['v2']
+      })
+    })
+
+    it('combines derive_from with explicit tags', async () => {
+      setupInputs({
+        tags: 'latest',
+        derive_from: 'v1.0.0',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(3)
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/latest',
+        sha: 'sha-abc123'
+      })
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1',
+        sha: 'sha-abc123'
+      })
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1.0',
+        sha: 'sha-abc123'
+      })
+
+      expect(getOutputs()).toEqual({
+        created: ['latest', 'v1', 'v1.0'],
+        updated: [],
+        skipped: [],
+        tags: ['latest', 'v1', 'v1.0']
+      })
+    })
+
+    it('handles version without v prefix', async () => {
+      setupInputs({
+        derive_from: '3.0.0',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/3',
+        sha: 'sha-abc123'
+      })
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/3.0',
+        sha: 'sha-abc123'
+      })
+
+      expect(getOutputs()).toEqual({
+        created: ['3', '3.0'],
+        updated: [],
+        skipped: [],
+        tags: ['3', '3.0']
+      })
+    })
+
+    it('fails when neither tags nor derive_from is provided', async () => {
+      setupInputs({
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        "No tags specified. Provide 'tags' input, 'derive_from' input, or both."
+      )
+    })
+
+    it('fails on invalid semver in derive_from', async () => {
+      setupInputs({
+        derive_from: 'not-a-version',
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        "Invalid semver: 'not-a-version'"
+      )
+    })
+
+    it('deduplicates when tags and derive_from produce overlapping tags', async () => {
+      setupInputs({
+        tags: 'v1,v1.2',
+        derive_from: 'v1.2.3', // Derives v1 and v1.2, overlapping with explicit
+        ref: 'abc123',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver('sha-abc123')
+      setupTagDoesNotExist()
+
+      await run()
+
+      // Should only create 2 tags (deduplicated), not 4
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledTimes(2)
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1',
+        sha: 'sha-abc123'
+      })
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1.2',
+        sha: 'sha-abc123'
+      })
+
+      expect(getOutputs()).toEqual({
+        created: ['v1', 'v1.2'],
+        updated: [],
+        skipped: [],
+        tags: ['v1', 'v1.2']
+      })
+    })
+
+    it('fails when tags and derive_from produce same tag with different refs', async () => {
+      setupInputs({
+        tags: 'v1:main', // Explicit v1 pointing to main
+        derive_from: 'v1.2.3', // Derives v1 (using default ref)
+        ref: 'develop', // Different default ref
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        "Duplicate tag 'v1' with different refs: 'main' and 'develop'"
+      )
+      expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
+    })
+  })
 })

@@ -40,6 +40,37 @@ to move its own major and minor tags.
 
 <!-- x-release-please-end -->
 
+### Deriving Tags from Version
+
+Automatically derive major and minor tags from a semver version string:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    derive_from: v1.2.3
+    # Creates tags: v1, v1.2
+```
+
+With a custom template (major tag only):
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    derive_from: v1.2.3
+    derive_from_template: '{{prefix}}{{major}}'
+    # Creates tag: v1
+```
+
+Combine derived tags with explicit tags:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    derive_from: v1.2.3
+    tags: latest
+    # Creates tags: latest, v1, v1.2
+```
+
 ### With Release Please
 
 This example uses
@@ -65,8 +96,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' }}
     outputs:
       release_created: ${{ steps.release-please.outputs.release_created }}
-      major: ${{ steps.release-please.outputs.major }}
-      minor: ${{ steps.release-please.outputs.minor }}
+      tag_name: ${{ steps.release-please.outputs.tag_name }}
     permissions:
       contents: write
       issues: write
@@ -93,9 +123,8 @@ jobs:
     steps:
       - uses: jimeh/update-tags-action@v2
         with:
-          tags: |
-            v${{ needs.release-please.outputs.major }}
-            v${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}
+          derive_from: ${{ needs.release-please.outputs.tag_name }}
+          # Creates tags: v2, v2.2 (for tag_name v2.2.0)
 ```
 
 <!-- x-release-please-end -->
@@ -104,16 +133,73 @@ jobs:
 
 ## Inputs
 
-| name           | description                                                                                                           | required | default               |
-| -------------- | --------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
-| `tags`         | <p>List/CSV of tags to create/update.</p>                                                                             | `true`   | `""`                  |
-| `ref`          | <p>The SHA or ref to tag. Defaults to SHA of current commit.</p>                                                      | `false`  | `${{ github.sha }}`   |
-| `when_exists`  | <p>What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.</p>                              | `false`  | `update`              |
-| `annotation`   | <p>Optional annotation message for tags. If provided, creates annotated tags. If empty, creates lightweight tags.</p> | `false`  | `""`                  |
-| `dry_run`      | <p>If true, logs planned operations without executing them.</p>                                                       | `false`  | `false`               |
-| `github_token` | <p>The GitHub token to use for authentication.</p>                                                                    | `false`  | `${{ github.token }}` |
+| name                   | description                                                                                                                                                                                                              | required | default                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------- |
+| `tags`                 | <p>List/CSV of tags to create/update.</p>                                                                                                                                                                                | `false`  | `""`                                                |
+| `derive_from`          | <p>Semver version string to derive tags from (e.g., 'v1.2.3'). When provided, generates tags using <code>derive_from_template</code> input. Default template will produce major and minor tags. (e.g., 'v1', 'v1.2')</p> | `false`  | `""`                                                |
+| `derive_from_template` | <p>Handlebars template for deriving tags from the <code>derive_from</code> input. CSV/newline-delimited list with placeholders: {{prefix}}, {{major}}, {{minor}}, {{patch}}, {{prerelease}}, {{build}}, {{version}}.</p> | `false`  | `{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}` |
+| `ref`                  | <p>The SHA or ref to tag. Defaults to SHA of current commit.</p>                                                                                                                                                         | `false`  | `${{ github.sha }}`                                 |
+| `when_exists`          | <p>What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.</p>                                                                                                                                 | `false`  | `update`                                            |
+| `annotation`           | <p>Optional annotation message for tags. If provided, creates annotated tags. If empty, creates lightweight tags.</p>                                                                                                    | `false`  | `""`                                                |
+| `dry_run`              | <p>If true, logs planned operations without executing them.</p>                                                                                                                                                          | `false`  | `false`                                             |
+| `github_token`         | <p>The GitHub token to use for authentication.</p>                                                                                                                                                                       | `false`  | `${{ github.token }}`                               |
 
 <!-- action-docs-inputs source="action.yml" -->
+
+### Derive Template Syntax
+
+The `derive_from_template` input uses [Handlebars](https://handlebarsjs.com/)
+for template rendering. Splitting the template into separate tags by comma or
+newline is done after the template is rendered.
+
+Available placeholders:
+
+| Placeholder      | Description                                           |
+| ---------------- | ----------------------------------------------------- |
+| `{{prefix}}`     | `v` or `V` if input had a prefix, empty otherwise     |
+| `{{major}}`      | Major version number                                  |
+| `{{minor}}`      | Minor version number                                  |
+| `{{patch}}`      | Patch version number                                  |
+| `{{prerelease}}` | Prerelease identifier (e.g., `beta.1`), empty if none |
+| `{{build}}`      | Build metadata (e.g., `build.123`), empty if none     |
+| `{{version}}`    | Full version string without prefix                    |
+
+#### Conditional Sections
+
+Use Handlebars `{{#if}}` blocks to include content only when a variable has a
+value. This is useful for optional components like prerelease or build metadata:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    # Creates tag: v1-beta.1
+    derive_from: v1.2.3-beta.1
+    derive_from_template: |
+      {{prefix}}{{major}}{{#if prerelease}}-{{prerelease}}{{/if}}
+```
+
+For a stable release without prerelease:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    # Creates tag: v1 (prerelease section omitted)
+    derive_from: v1.2.3
+    derive_from_template: |
+      {{prefix}}{{major}}{{#if prerelease}}-{{prerelease}}{{/if}}
+```
+
+You can also use `{{#unless}}` for inverse logic:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    # Creates tag: v1-stable (only for non-prerelease versions)
+    derive_from: v1.2.3
+    derive_from_template: |
+      {{prefix}}{{major}}{{#unless prerelease}}-stable{{/unless}}
+```
+
 <!-- action-docs-outputs source="action.yml" -->
 
 ## Outputs
