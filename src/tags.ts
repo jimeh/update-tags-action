@@ -65,19 +65,18 @@ export async function planTagOperations(
 ): Promise<TagOperation[]> {
   const uniqueRefs = new Set<string>()
   const tagRefs: Record<string, string> = {}
+  const tagAnnotations: Record<string, string> = {}
 
   for (const tag of inputs.tags) {
-    const parts = tag.split(':').map((s) => s.trim())
-    if (parts.length > 2) {
-      throw new Error(
-        `Invalid tag specification '${tag}': too many colons. ` +
-          `Format should be 'tag' or 'tag:ref'.`
-      )
-    }
-    const [tagName, tagRef] = parts
+    const parts = tag.split(':')
+    const tagName = (parts[0] || '').trim()
+    const tagRef = (parts[1] || '').trim()
+    // Join remaining parts back with colons to preserve annotation content
+    const tagAnnotation = parts.slice(2).join(':').trim()
+
     if (!tagName) {
       // Skip completely empty tags, but fail on invalid ones like ":main"
-      if (tagRef) {
+      if (tagRef || tagAnnotation) {
         throw new Error(`Invalid tag: '${tag}'`)
       }
       continue
@@ -97,6 +96,9 @@ export async function planTagOperations(
     }
 
     tagRefs[tagName] = ref
+    if (tagAnnotation) {
+      tagAnnotations[tagName] = tagAnnotation
+    }
     uniqueRefs.add(ref)
   }
 
@@ -115,6 +117,7 @@ export async function planTagOperations(
     tagNames.map(async (tagName) => {
       const tagRef = tagRefs[tagName]
       const sha = refSHAs[tagRef]
+      const annotation = tagAnnotations[tagName] || inputs.annotation
 
       // Check if tag already exists
       let existing: ExistingTagInfo | undefined
@@ -155,7 +158,7 @@ export async function planTagOperations(
         return {
           ...baseOp,
           operation: 'create',
-          annotation: inputs.annotation
+          annotation
         } as CreateOperation
       }
 
@@ -172,7 +175,7 @@ export async function planTagOperations(
       // whenExists === 'update' - check if update is needed
       const { commitMatches, annotationMatches } = compareTagState(
         sha,
-        inputs.annotation,
+        annotation,
         existing
       )
 
@@ -186,11 +189,11 @@ export async function planTagOperations(
       }
 
       // Plan update with reasons
-      const reasons = getUpdateReasons(sha, inputs.annotation, existing)
+      const reasons = getUpdateReasons(sha, annotation, existing)
       return {
         ...baseOp,
         operation: 'update',
-        annotation: inputs.annotation,
+        annotation,
         existingSHA: existing.commitSHA,
         existingIsAnnotated: existing.isAnnotated,
         reasons

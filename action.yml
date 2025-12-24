@@ -8,7 +8,10 @@ branding:
 
 inputs:
   tags:
-    description: "List/CSV of tags to create/update."
+    description: >-
+      List/CSV of tags to create/update. Supports per-tag ref and annotation
+      overrides using the format 'tag:ref:annotation'. Use 'tag::annotation' to
+      specify an annotation with the default ref.
     required: false
   derive_from:
     description: >-
@@ -18,9 +21,10 @@ inputs:
     required: false
   derive_from_template:
     description: >-
-      Handlebars template for deriving tags from the `derive_from` input.
-      CSV/newline-delimited list with placeholders: {{prefix}}, {{major}},
-      {{minor}}, {{patch}}, {{prerelease}}, {{build}}, {{version}}.
+      Handlebars template for deriving tags from the `derive_from` input. Uses
+      the same format as the `tags` input, and supports the following handlebars
+      placeholders: `{{prefix}}`, `{{major}}`, `{{minor}}`, `{{patch}}`,
+      `{{prerelease}}`, `{{build}}`, `{{version}}`.
     required: false
     default: "{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}"
   ref:
@@ -35,8 +39,9 @@ inputs:
     default: "update"
   annotation:
     description: >-
-      Optional annotation message for tags. If provided, creates annotated tags.
-      If empty, creates lightweight tags.
+      Optional default annotation message for tags. If provided, creates
+      annotated tags. If empty, creates lightweight tags. Can be overridden
+      per-tag using the 'tag:ref:annotation' syntax in the tags input.
     required: false
     default: ""
   dry_run:
