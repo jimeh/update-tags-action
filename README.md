@@ -22,22 +22,18 @@ to move its own major and minor tags.
 
 ### Basic
 
-<!-- x-release-please-start-major -->
-<!-- x-release-please-start-minor -->
-<!-- x-release-please-start-version -->
-
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    tags: v2,v2.2
+    tags: v1,v1.2
 ```
 
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
     tags: |
-      v2
-      v2.2
+      v1
+      v1.2
 ```
 
 ### Deriving Tags from Version
@@ -47,8 +43,8 @@ Automatically derive major and minor tags from a semver version string:
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    derive_from: v2.2.1
-    # Creates tags: v2, v2.2
+    derive_from: v1.2.3
+    # Creates tags: v1, v1.2
 ```
 
 With a custom template (major tag only):
@@ -56,9 +52,9 @@ With a custom template (major tag only):
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    derive_from: v2.2.1
+    derive_from: v1.2.3
     derive_from_template: '{{prefix}}{{major}}'
-    # Creates tag: v2
+    # Creates tag: v1
 ```
 
 Combine derived tags with explicit tags:
@@ -66,12 +62,10 @@ Combine derived tags with explicit tags:
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    derive_from: v2.2.1
+    derive_from: v1.2.3
     tags: latest
-    # Creates tags: latest, v2, v2.2
+    # Creates tags: latest, v1, v1.2
 ```
-
-<!-- x-release-please-end -->
 
 ### With Release Please
 
@@ -111,8 +105,6 @@ jobs:
 And finally a job to create MAJOR and MINOR release tags, which only runs when
 release-please reports having created a release:
 
-<!-- x-release-please-start-major -->
-
 ```yaml
 jobs:
   # [...]
@@ -126,10 +118,8 @@ jobs:
       - uses: jimeh/update-tags-action@v2
         with:
           derive_from: ${{ needs.release-please.outputs.tag_name }}
-          # Creates tags: v2, v2.2 (for tag_name v2.2.0)
+          # Creates tags: v1, v1.2 (for tag_name v1.2.3)
 ```
-
-<!-- x-release-please-end -->
 
 <!-- action-docs-inputs source="action.yml" -->
 
