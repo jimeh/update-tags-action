@@ -22,6 +22,8 @@ to move its own major and minor tags.
 
 ### Basic
 
+<!-- x-release-please-start-major -->
+<!-- x-release-please-start-minor -->
 <!-- x-release-please-start-version -->
 
 ```yaml
@@ -165,15 +167,12 @@ tag[:ref[:annotation]]
 
 **Per-tag refs** allow different tags to point to different commits:
 
-<!-- x-release-please-start-version -->
-
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
     tags: |
       v1:main
-      v1.2:main
-      v1.3:develop
+      v2:develop
 ```
 
 **Per-tag annotations** allow different annotation messages for each tag:
@@ -203,11 +202,11 @@ Per-tag values override the global `ref` and `annotation` inputs:
   with:
     tags: |
       v1:main:Custom annotation for v1
-      v1.2
+      v2
     ref: develop
     annotation: Default annotation for tags without per-tag override
     # v1 -> main with "Custom annotation for v1"
-    # v1.2 -> develop with "Default annotation..."
+    # v2 -> develop with "Default annotation..."
 ```
 
 Annotations can contain colons (everything after the second colon is the
@@ -220,8 +219,6 @@ annotation):
       v1:main:Release: version 1.0.0
     # Annotation will be "Release: version 1.0.0"
 ```
-
-<!-- x-release-please-end -->
 
 ### Derive Template Syntax
 
@@ -245,8 +242,6 @@ Available placeholders:
 
 Use Handlebars `{{#if}}` blocks to include content only when a variable has a
 value. This is useful for optional components like prerelease or build metadata:
-
-<!-- x-release-please-start-version -->
 
 ```yaml
 - uses: jimeh/update-tags-action@v2
@@ -278,8 +273,6 @@ You can also use `{{#unless}}` for inverse logic:
       {{prefix}}{{major}}{{#unless prerelease}}-stable{{/unless}}
     # Creates tag: v1-stable (only for non-prerelease versions)
 ```
-
-<!-- x-release-please-end -->
 
 <!-- action-docs-outputs source="action.yml" -->
 
