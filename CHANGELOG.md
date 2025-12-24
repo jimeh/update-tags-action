@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.3.0](https://github.com/jimeh/update-tags-action/compare/v2.2.1...v2.3.0) (2025-12-24)
+
+
+### Features
+
+* **inputs/derive_from:** derive tags from provided semver string ([#79](https://github.com/jimeh/update-tags-action/issues/79)) ([1d171e9](https://github.com/jimeh/update-tags-action/commit/1d171e9f3c63639b8d0145a881a6df941200742d))
+* **inputs/dry_run:** add dry run support ([#76](https://github.com/jimeh/update-tags-action/issues/76)) ([ef41989](https://github.com/jimeh/update-tags-action/commit/ef4198907727f6ff9e5813deb5ab5a4307ab4691))
+* **inputs/tags:** support per-tag annotation overrides ([#81](https://github.com/jimeh/update-tags-action/issues/81)) ([32e66b0](https://github.com/jimeh/update-tags-action/commit/32e66b04be37383e2450d698007faa436c706ffd))
+
 ## [2.2.1](https://github.com/jimeh/update-tags-action/compare/v2.2.0...v2.2.1) (2025-12-22)
 
 
