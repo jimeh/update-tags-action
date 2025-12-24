@@ -133,18 +133,90 @@ jobs:
 
 ## Inputs
 
-| name                   | description                                                                                                                                                                                                              | required | default                                             |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------- |
-| `tags`                 | <p>List/CSV of tags to create/update.</p>                                                                                                                                                                                | `false`  | `""`                                                |
-| `derive_from`          | <p>Semver version string to derive tags from (e.g., 'v1.2.3'). When provided, generates tags using <code>derive_from_template</code> input. Default template will produce major and minor tags. (e.g., 'v1', 'v1.2')</p> | `false`  | `""`                                                |
-| `derive_from_template` | <p>Handlebars template for deriving tags from the <code>derive_from</code> input. CSV/newline-delimited list with placeholders: {{prefix}}, {{major}}, {{minor}}, {{patch}}, {{prerelease}}, {{build}}, {{version}}.</p> | `false`  | `{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}` |
-| `ref`                  | <p>The SHA or ref to tag. Defaults to SHA of current commit.</p>                                                                                                                                                         | `false`  | `${{ github.sha }}`                                 |
-| `when_exists`          | <p>What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.</p>                                                                                                                                 | `false`  | `update`                                            |
-| `annotation`           | <p>Optional annotation message for tags. If provided, creates annotated tags. If empty, creates lightweight tags.</p>                                                                                                    | `false`  | `""`                                                |
-| `dry_run`              | <p>If true, logs planned operations without executing them.</p>                                                                                                                                                          | `false`  | `false`                                             |
-| `github_token`         | <p>The GitHub token to use for authentication.</p>                                                                                                                                                                       | `false`  | `${{ github.token }}`                               |
+| name                   | description                                                                                                                                                                                                                                                                                                                                                                    | required | default                                             |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------- |
+| `tags`                 | <p>List/CSV of tags to create/update. Supports per-tag ref and annotation overrides using the format 'tag:ref:annotation'. Use 'tag::annotation' to specify an annotation with the default ref.</p>                                                                                                                                                                            | `false`  | `""`                                                |
+| `derive_from`          | <p>Semver version string to derive tags from (e.g., 'v1.2.3'). When provided, generates tags using <code>derive_from_template</code> input. Default template will produce major and minor tags. (e.g., 'v1', 'v1.2')</p>                                                                                                                                                       | `false`  | `""`                                                |
+| `derive_from_template` | <p>Handlebars template for deriving tags from the <code>derive_from</code> input. Uses the same format as the <code>tags</code> input, and supports the following handlebars placeholders: <code>{{prefix}}</code>, <code>{{major}}</code>, <code>{{minor}}</code>, <code>{{patch}}</code>, <code>{{prerelease}}</code>, <code>{{build}}</code>, <code>{{version}}</code>.</p> | `false`  | `{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}` |
+| `ref`                  | <p>The SHA or ref to tag. Defaults to SHA of current commit.</p>                                                                                                                                                                                                                                                                                                               | `false`  | `${{ github.sha }}`                                 |
+| `when_exists`          | <p>What to do if the tag already exists. Must be one of 'update', 'skip', or 'fail'.</p>                                                                                                                                                                                                                                                                                       | `false`  | `update`                                            |
+| `annotation`           | <p>Optional default annotation message for tags. If provided, creates annotated tags. If empty, creates lightweight tags. Can be overridden per-tag using the 'tag:ref:annotation' syntax in the tags input.</p>                                                                                                                                                               | `false`  | `""`                                                |
+| `dry_run`              | <p>If true, logs planned operations without executing them.</p>                                                                                                                                                                                                                                                                                                                | `false`  | `false`                                             |
+| `github_token`         | <p>The GitHub token to use for authentication.</p>                                                                                                                                                                                                                                                                                                                             | `false`  | `${{ github.token }}`                               |
 
 <!-- action-docs-inputs source="action.yml" -->
+
+### Tag Input Syntax
+
+The `tags` input accepts a comma or newline-delimited list of tags. Each tag
+specification supports optional per-tag ref and annotation overrides using the
+format:
+
+```
+tag[:ref[:annotation]]
+```
+
+| Format               | Description                                     |
+| -------------------- | ----------------------------------------------- |
+| `tag`                | Tag using default `ref` and `annotation` inputs |
+| `tag:ref`            | Tag using specified ref, default annotation     |
+| `tag:ref:annotation` | Tag using specified ref and annotation          |
+| `tag::annotation`    | Tag using default ref with specified annotation |
+
+**Per-tag refs** allow different tags to point to different commits:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    tags: |
+      v1:main
+      v2:develop
+```
+
+**Per-tag annotations** allow different annotation messages for each tag:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    tags: |
+      v1:main:Latest v1.x release
+      v1.2:main:Latest v1.2.x release
+```
+
+Use `tag::annotation` to specify an annotation while using the default ref:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    tags: |
+      v1::This is the v1 tag annotation
+      v1.2::This is the v1.2 tag annotation
+```
+
+Per-tag values override the global `ref` and `annotation` inputs:
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    tags: |
+      v1:main:Custom annotation for v1
+      v2
+    ref: develop
+    annotation: Default annotation for tags without per-tag override
+    # v1 -> main with "Custom annotation for v1"
+    # v2 -> develop with "Default annotation..."
+```
+
+Annotations can contain colons (everything after the second colon is the
+annotation):
+
+```yaml
+- uses: jimeh/update-tags-action@v2
+  with:
+    tags: |
+      v1:main:Release: version 1.0.0
+    # Annotation will be "Release: version 1.0.0"
+```
 
 ### Derive Template Syntax
 
@@ -172,10 +244,10 @@ value. This is useful for optional components like prerelease or build metadata:
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    # Creates tag: v1-beta.1
     derive_from: v1.2.3-beta.1
     derive_from_template: |
       {{prefix}}{{major}}{{#if prerelease}}-{{prerelease}}{{/if}}
+    # Creates tag: v1-beta.1
 ```
 
 For a stable release without prerelease:
@@ -183,10 +255,10 @@ For a stable release without prerelease:
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    # Creates tag: v1 (prerelease section omitted)
     derive_from: v1.2.3
     derive_from_template: |
       {{prefix}}{{major}}{{#if prerelease}}-{{prerelease}}{{/if}}
+    # Creates tag: v1 (prerelease section omitted)
 ```
 
 You can also use `{{#unless}}` for inverse logic:
@@ -194,10 +266,10 @@ You can also use `{{#unless}}` for inverse logic:
 ```yaml
 - uses: jimeh/update-tags-action@v2
   with:
-    # Creates tag: v1-stable (only for non-prerelease versions)
     derive_from: v1.2.3
     derive_from_template: |
       {{prefix}}{{major}}{{#unless prerelease}}-stable{{/unless}}
+    # Creates tag: v1-stable (only for non-prerelease versions)
 ```
 
 <!-- action-docs-outputs source="action.yml" -->

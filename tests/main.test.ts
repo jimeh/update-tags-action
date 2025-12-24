@@ -538,22 +538,42 @@ describe('run', () => {
     })
   })
 
-  it('fails when tag specification has multiple colons', async () => {
+  it('creates annotated tag with per-tag annotation syntax', async () => {
     setupInputs({
-      tags: 'stable:refs/heads/main:latest',
+      tags: 'stable:refs/heads/main:Release annotation',
       ref: '',
       github_token: 'test-token',
       when_exists: 'update'
     })
+    setupCommitResolver({ 'refs/heads/main': 'sha-main' })
+    setupTagDoesNotExist()
+
+    github.mockOctokit.rest.git.createTag.mockResolvedValue({
+      data: { sha: 'sha-tag-object-stable' }
+    })
 
     await run()
 
-    expect(core.setFailed).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid tag specification')
-    )
-    expect(core.setFailed).toHaveBeenCalledWith(
-      expect.stringContaining('too many colons')
-    )
+    expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+      owner: 'test-owner',
+      repo: 'test-repo',
+      tag: 'stable',
+      message: 'Release annotation',
+      object: 'sha-main',
+      type: 'commit'
+    })
+    expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+      owner: 'test-owner',
+      repo: 'test-repo',
+      ref: 'refs/tags/stable',
+      sha: 'sha-tag-object-stable'
+    })
+    expect(getOutputs()).toEqual({
+      created: ['stable'],
+      updated: [],
+      skipped: [],
+      tags: ['stable']
+    })
   })
 
   it('handles mixed scenario with multiple tags', async () => {
@@ -1665,6 +1685,204 @@ describe('run', () => {
         "Duplicate tag 'v1' with different refs: 'main' and 'develop'"
       )
       expect(github.mockOctokit.rest.git.createRef).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('per-tag annotations', () => {
+    it('creates tag with per-tag annotation using empty ref fallback', async () => {
+      setupInputs({
+        tags: 'v1::Per-tag annotation',
+        ref: 'main',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver('sha-main')
+      setupTagDoesNotExist()
+
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'sha-tag-object-v1' }
+      })
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'Per-tag annotation',
+        object: 'sha-main',
+        type: 'commit'
+      })
+      expect(github.mockOctokit.rest.git.createRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'refs/tags/v1',
+        sha: 'sha-tag-object-v1'
+      })
+      expect(getOutputs()).toEqual({
+        created: ['v1'],
+        updated: [],
+        skipped: [],
+        tags: ['v1']
+      })
+    })
+
+    it('handles per-tag annotation containing colons', async () => {
+      setupInputs({
+        tags: 'v1:main:Release: version 1.0.0: stable',
+        ref: '',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver({ main: 'sha-main' })
+      setupTagDoesNotExist()
+
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'sha-tag-object-v1' }
+      })
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'Release: version 1.0.0: stable',
+        object: 'sha-main',
+        type: 'commit'
+      })
+    })
+
+    it('mixes per-tag annotations with global annotation', async () => {
+      setupInputs({
+        tags: 'v1:main:Custom message,v2',
+        ref: 'main',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Global annotation'
+      })
+      setupCommitResolver('sha-main')
+      setupTagDoesNotExist()
+
+      github.mockOctokit.rest.git.createTag.mockImplementation(
+        async (args: unknown) => {
+          const { tag } = args as { tag: string }
+          return { data: { sha: `sha-tag-object-${tag}` } }
+        }
+      )
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledTimes(2)
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'Custom message',
+        object: 'sha-main',
+        type: 'commit'
+      })
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v2',
+        message: 'Global annotation',
+        object: 'sha-main',
+        type: 'commit'
+      })
+    })
+
+    it('per-tag annotation overrides global annotation', async () => {
+      setupInputs({
+        tags: 'v1:main:Per-tag wins',
+        ref: 'main',
+        github_token: 'test-token',
+        when_exists: 'update',
+        annotation: 'Global annotation should be ignored'
+      })
+      setupCommitResolver('sha-main')
+      setupTagDoesNotExist()
+
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'sha-tag-object-v1' }
+      })
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'Per-tag wins',
+        object: 'sha-main',
+        type: 'commit'
+      })
+    })
+
+    it('updates tag when per-tag annotation differs from existing', async () => {
+      setupInputs({
+        tags: 'v1:main:New annotation',
+        ref: '',
+        github_token: 'test-token',
+        when_exists: 'update'
+      })
+      setupCommitResolver({ main: 'sha-main' })
+
+      // Tag exists as annotated with different message but same commit
+      github.mockOctokit.rest.git.getRef.mockResolvedValue({
+        data: {
+          ref: 'refs/tags/v1',
+          object: { sha: 'sha-tag-object-old', type: 'tag' }
+        }
+      })
+      github.mockOctokit.rest.git.getTag.mockResolvedValue({
+        data: {
+          sha: 'sha-tag-object-old',
+          message: 'Old annotation',
+          object: { sha: 'sha-main', type: 'commit' }
+        }
+      })
+      github.mockOctokit.rest.git.createTag.mockResolvedValue({
+        data: { sha: 'sha-tag-object-new' }
+      })
+
+      await run()
+
+      expect(github.mockOctokit.rest.git.createTag).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        tag: 'v1',
+        message: 'New annotation',
+        object: 'sha-main',
+        type: 'commit'
+      })
+      expect(github.mockOctokit.rest.git.updateRef).toHaveBeenCalledWith({
+        owner: 'test-owner',
+        repo: 'test-repo',
+        ref: 'tags/v1',
+        sha: 'sha-tag-object-new',
+        force: true
+      })
+      expect(getOutputs()).toEqual({
+        created: [],
+        updated: ['v1'],
+        skipped: [],
+        tags: ['v1']
+      })
+    })
+
+    it('fails when empty tag name with per-tag annotation', async () => {
+      setupInputs({
+        tags: '::Some annotation',
+        ref: 'main',
+        github_token: 'test-token'
+      })
+
+      await run()
+
+      expect(core.setFailed).toHaveBeenCalledWith(
+        "Invalid tag: '::Some annotation'"
+      )
     })
   })
 })

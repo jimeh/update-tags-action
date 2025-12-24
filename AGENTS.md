@@ -85,7 +85,16 @@ npm run licensed:cache   # Re-cache licenses if needed
 ### Tag Input Parsing
 
 Uses `csv-parse/sync` to handle both CSV and newline-delimited formats. Supports
-per-tag ref overrides: `v1:main` tags `v1` to `main` branch.
+per-tag ref and annotation overrides using the format `tag:ref:annotation`:
+
+- `tag` — Use default `ref` and `annotation` inputs
+- `tag:ref` — Override ref for this tag (e.g., `v1:main` tags `v1` to `main`)
+- `tag:ref:annotation` — Override both ref and annotation
+- `tag::annotation` — Override annotation only (empty ref uses default)
+
+Annotations can contain colons; everything after the second colon is treated as
+the annotation text. Per-tag values override the global `ref` and `annotation`
+inputs.
 
 ### Tag Derivation
 
@@ -105,7 +114,7 @@ conditionals like `{{#if prerelease}}...{{/if}}`.
 
 1. Parse and validate inputs ([inputs.ts](src/inputs.ts))
 2. Plan all tag operations ([tags.ts](src/tags.ts):planTagOperations):
-   - Parse `tag:ref` syntax and extract per-tag refs
+   - Parse `tag:ref:annotation` syntax and extract per-tag refs/annotations
    - Pre-resolve all unique refs to SHAs in parallel (optimization)
    - For each tag, check existence and determine operation:
      - If exists + fail mode: Fail action immediately
@@ -215,13 +224,14 @@ chore(deps): bump @actions/core to v1.10.0
 
 **Inputs:**
 
-- `tags`: CSV/newline list, supports `tag:ref` syntax
+- `tags`: CSV/newline list, supports `tag:ref:annotation` syntax for per-tag
+  overrides
 - `derive_from`: Semver version string to derive tags from (e.g., "v1.2.3")
 - `derive_from_template`: Handlebars template for tag derivation (default:
   `{{prefix}}{{major}},{{prefix}}{{major}}.{{minor}}`)
-- `ref`: SHA/ref to tag (default: current commit)
+- `ref`: Default SHA/ref to tag (default: current commit)
 - `when_exists`: update|skip|fail (default: update)
-- `annotation`: Optional message for annotated tags (default: lightweight)
+- `annotation`: Default annotation message for tags (default: lightweight/none)
 - `dry_run`: Log planned operations without executing (default: false)
 - `github_token`: Auth token (default: github.token)
 
