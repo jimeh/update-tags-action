@@ -1,6 +1,6 @@
 {
   "name": "update-tags-action",
-  "version": "2.2.1",
+  "version": "2.3.0",
   "author": "jimeh",
   "type": "module",
   "private": true,
