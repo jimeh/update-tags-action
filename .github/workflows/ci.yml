@@ -95,7 +95,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: jimeh/update-tags-action@eecd8caae9a536ed536cff9b2b7f0bd187f67c13 # v2.2.0
+      - uses: jimeh/update-tags-action@98d6d448de7488acb52bd8db115673541d019521 # v2.3.0
         with:
           tags: |
             v${{ needs.release-please.outputs.major }}
