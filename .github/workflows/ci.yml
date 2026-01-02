@@ -79,8 +79,7 @@ jobs:
     if: ${{ github.ref == 'refs/heads/main' }}
     outputs:
       release_created: ${{ steps.release-please.outputs.release_created }}
-      major: ${{ steps.release-please.outputs.major }}
-      minor: ${{ steps.release-please.outputs.minor }}
+      tag_name: ${{ steps.release-please.outputs.tag_name }}
     steps:
       - uses: jimeh/release-please-manifest-action@84f33fd2828210488c36f3e0a7e3209252d2ae7d # v3.0.0
         id: release-please
@@ -97,6 +96,4 @@ jobs:
     steps:
       - uses: jimeh/update-tags-action@98d6d448de7488acb52bd8db115673541d019521 # v2.3.0
         with:
-          tags: |
-            v${{ needs.release-please.outputs.major }}
-            v${{ needs.release-please.outputs.major }}.${{ needs.release-please.outputs.minor }}
+          derive_from: ${{ needs.release-please.outputs.tag_name }}
