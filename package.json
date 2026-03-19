@@ -41,11 +41,11 @@
     "update-readme": "npx action-docs --update-readme && npx prettier --write README.md"
   },
   "dependencies": {
-    "@actions/core": "^2.0.2",
-    "@actions/github": "^7.0.0",
-    "csv-parse": "^6.1.0",
+    "@actions/core": "^3.0.0",
+    "@actions/github": "^9.0.0",
+    "csv-parse": "^6.2.0",
     "handlebars": "^4.7.8",
-    "semver": "^7.7.3"
+    "semver": "^7.7.4"
   },
   "devDependencies": {
     "@eslint/compat": "^2.0.1",
