@@ -44,7 +44,7 @@
     "@actions/core": "^2.0.2",
     "@actions/github": "^7.0.0",
     "csv-parse": "^6.1.0",
-    "handlebars": "^4.7.8",
+    "handlebars": "^4.7.9",
     "semver": "^7.7.3"
   },
   "devDependencies": {
