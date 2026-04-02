@@ -1,6 +1,6 @@
 ---
 name: csv-parse
-version: 6.1.0
+version: 6.2.1
 type: npm
 summary: CSV parsing implementing the Node.js `stream.Transform` API
 homepage: https://csv.js.org/parse
